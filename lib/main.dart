@@ -18,7 +18,7 @@ class SchoolTrackerApp extends StatefulWidget {
 
 class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
   bool _isDarkMode = false;
-  bool _isLocked = true; // خاصية القفل الأمني
+  bool _isLocked = true;
 
   void _toggleTheme() {
     setState(() {
@@ -56,7 +56,7 @@ class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
 }
 
 // ==========================================
-// شاشة حماية وقفل التطبيق برمز PIN
+// شاشة حماية وقفل التطبيق بررمز PIN
 // ==========================================
 class PinLockScreen extends StatefulWidget {
   final VoidCallback onUnlock;
@@ -68,7 +68,7 @@ class PinLockScreen extends StatefulWidget {
 
 class _PinLockScreenState extends State<PinLockScreen> {
   final TextEditingController _pinController = TextEditingController();
-  final String correctPin = "1234"; // الرمز الافتراضي (يمكن تخصيصه)
+  final String correctPin = "1234";
   String errorMessage = "";
 
   void _verifyPin() {
@@ -188,10 +188,10 @@ class DailyAttendanceRecord {
 }
 
 class TimetableItem {
-  String day; // مثال: الأحد
-  String timeSlot; // مثال: 08:00 - 09:00
-  String className; // اسم القسم
-  String room; // القاعة
+  String day;
+  String timeSlot;
+  String className;
+  String room;
 
   TimetableItem({required this.day, required this.timeSlot, required this.className, required this.room});
 
@@ -303,7 +303,7 @@ class Teacher {
   String name;
   String subject;
   List<SchoolClass> classes;
-  List<TimetableItem> timetable; // جدول الحصص الأسبوعي
+  List<TimetableItem> timetable;
 
   Teacher({required this.name, required this.subject, List<SchoolClass>? classes, List<TimetableItem>? timetable})
       : classes = classes ?? [],
@@ -633,7 +633,7 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
 }
 
 // ==========================================
-// 3. شاشة إدارة الأقسام والجدول الأسبوعي والنسخ الاحتياطي
+// 3. شاشة إدارة الأقسام والجدول الأسبوعي
 // ==========================================
 class ClassesScreen extends StatefulWidget {
   final Institution institution;
@@ -1335,7 +1335,7 @@ class _GradesScreenState extends State<GradesScreen> {
 }
 
 // ==========================================
-// 9. واجهة التلاميذ الشاملة (مع طباعة تقارير PDF وسجل تاريخي)
+// 9. واجهة التلاميذ الشاملة
 // ==========================================
 class StudentsScreen extends StatefulWidget {
   final Institution institution;
