@@ -18,6 +18,7 @@ class SchoolTrackerApp extends StatefulWidget {
 
 class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
   bool _isDarkMode = false;
+  bool _isLocked = true; // خاصية القفل الأمني
 
   void _toggleTheme() {
     setState(() {
@@ -25,11 +26,17 @@ class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
     });
   }
 
+  void _unlockApp() {
+    setState(() {
+      _isLocked = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'السجل التربوي الشامل',
+      title: 'السجل التربوي الشامل Pro',
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E3A8A), secondary: const Color(0xFF0D9488)),
@@ -43,13 +50,100 @@ class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
         brightness: Brightness.dark,
         fontFamily: 'Cairo',
       ),
-      home: InstitutionsListScreen(onThemeToggle: _toggleTheme, isDarkMode: _isDarkMode),
+      home: _isLocked ? PinLockScreen(onUnlock: _unlockApp) : InstitutionsListScreen(onThemeToggle: _toggleTheme, isDarkMode: _isDarkMode),
     );
   }
 }
 
 // ==========================================
-// نماذج البيانات (Models) مع سجل الأيام التاريخي
+// شاشة حماية وقفل التطبيق برمز PIN
+// ==========================================
+class PinLockScreen extends StatefulWidget {
+  final VoidCallback onUnlock;
+  const PinLockScreen({super.key, required this.onUnlock});
+
+  @override
+  State<PinLockScreen> createState() => _PinLockScreenState();
+}
+
+class _PinLockScreenState extends State<PinLockScreen> {
+  final TextEditingController _pinController = TextEditingController();
+  final String correctPin = "1234"; // الرمز الافتراضي (يمكن تخصيصه)
+  String errorMessage = "";
+
+  void _verifyPin() {
+    if (_pinController.text == correctPin) {
+      widget.onUnlock();
+    } else {
+      setState(() {
+        errorMessage = "الرمز غير صحيح! (الرمز الافتراضي: 1234)";
+        _pinController.clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [Color(0xFF1E3A8A), Color(0xFF0D9488)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircleAvatar(backgroundColor: Color(0xFF1E3A8A), radius: 36, child: Icon(Icons.lock, size: 36, color: Colors.white)),
+                    const SizedBox(height: 16),
+                    const Text('السجل التربوي المحمي', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text('أدخل رمز المرور لفتح التطبيق', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                        counterText: "",
+                      ),
+                    ),
+                    if (errorMessage.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(errorMessage, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                        onPressed: _verifyPin,
+                        child: const Text('فتح التطبيق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// نماذج البيانات (Models)
 // ==========================================
 class BehaviorLog {
   final String description;
@@ -66,7 +160,7 @@ class BehaviorLog {
         pointsChange: json['pointsChange'] ?? 0,
         time: json['time'] ?? '',
         reason: json['reason'],
-        date: json['date'] ?? 'غير محدد',
+        date: json['date'] ?? '12/10/2026',
       );
 }
 
@@ -80,10 +174,9 @@ class LessonNote {
   factory LessonNote.fromJson(Map<String, dynamic> json) => LessonNote(date: json['date'], title: json['title'], summary: json['summary'], homework: json['homework']);
 }
 
-// نموذج لحفظ السجل اليومي الكامل للقسم في تاريخ محدد
 class DailyAttendanceRecord {
-  String date; // مثال: 12/10/2026
-  List<Map<String, String>> studentStatuses; // اسم التلميذ، حالته، التوقيت، السبب
+  String date;
+  List<Map<String, String>> studentStatuses;
 
   DailyAttendanceRecord({required this.date, required this.studentStatuses});
 
@@ -91,6 +184,23 @@ class DailyAttendanceRecord {
   factory DailyAttendanceRecord.fromJson(Map<String, dynamic> json) => DailyAttendanceRecord(
         date: json['date'] ?? '',
         studentStatuses: json['studentStatuses'] != null ? List<Map<String, String>>.from((json['studentStatuses'] as List).map((e) => Map<String, String>.from(e))) : [],
+      );
+}
+
+class TimetableItem {
+  String day; // مثال: الأحد
+  String timeSlot; // مثال: 08:00 - 09:00
+  String className; // اسم القسم
+  String room; // القاعة
+
+  TimetableItem({required this.day, required this.timeSlot, required this.className, required this.room});
+
+  Map<String, dynamic> toJson() => {'day': day, 'timeSlot': timeSlot, 'className': className, 'room': room};
+  factory TimetableItem.fromJson(Map<String, dynamic> json) => TimetableItem(
+        day: json['day'] ?? '',
+        timeSlot: json['timeSlot'] ?? '',
+        className: json['className'] ?? '',
+        room: json['room'] ?? '',
       );
 }
 
@@ -168,7 +278,7 @@ class SchoolClass {
   String name;
   List<Student> students;
   List<LessonNote> lessonNotes;
-  List<DailyAttendanceRecord> dailyRecords; // الأرشيف السنوي لأيام القسم
+  List<DailyAttendanceRecord> dailyRecords;
 
   SchoolClass({required this.name, required this.students, List<LessonNote>? lessonNotes, List<DailyAttendanceRecord>? dailyRecords})
       : lessonNotes = lessonNotes ?? [],
@@ -193,14 +303,24 @@ class Teacher {
   String name;
   String subject;
   List<SchoolClass> classes;
+  List<TimetableItem> timetable; // جدول الحصص الأسبوعي
 
-  Teacher({required this.name, required this.subject, List<SchoolClass>? classes}) : classes = classes ?? [];
+  Teacher({required this.name, required this.subject, List<SchoolClass>? classes, List<TimetableItem>? timetable})
+      : classes = classes ?? [],
+        timetable = timetable ?? [];
 
-  Map<String, dynamic> toJson() => {'name': name, 'subject': subject, 'classes': classes.map((c) => c.toJson()).toList()};
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'subject': subject,
+        'classes': classes.map((c) => c.toJson()).toList(),
+        'timetable': timetable.map((t) => t.toJson()).toList(),
+      };
+
   factory Teacher.fromJson(Map<String, dynamic> json) => Teacher(
         name: json['name'] ?? '',
         subject: json['subject'] ?? '',
         classes: json['classes'] != null ? (json['classes'] as List).map((c) => SchoolClass.fromJson(c)).toList() : [],
+        timetable: json['timetable'] != null ? (json['timetable'] as List).map((t) => TimetableItem.fromJson(t)).toList() : [],
       );
 }
 
@@ -239,6 +359,9 @@ class SchoolData {
             Teacher(
               name: 'الأستاذ الكريم',
               subject: 'رياضيات',
+              timetable: [
+                TimetableItem(day: 'الأحد', timeSlot: '08:00 - 10:00', className: '2 ثانوي رياضيات 1', room: 'قاعة 12'),
+              ],
               classes: [
                 SchoolClass(name: '2 ثانوي رياضيات 1', students: [
                   Student(firstName: 'أحمد', lastName: 'بن علي', regNumber: '2026101', birthDate: '15/05/2010', birthPlace: 'الجلفة', points: 5, exam1: 14, exam2: 15, test: 16),
@@ -335,7 +458,7 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('المؤسسات التربوية'),
+        title: const Text('المؤسسات التربوية Pro'),
         actions: [
           IconButton(icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode), onPressed: widget.onThemeToggle),
         ],
@@ -383,7 +506,7 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
 }
 
 // ==========================================
-// 2. شاشة إدارة الأساتذة والمواد
+// 2. شاشة إدارة الأساتذة والمواد وجدول الحصص
 // ==========================================
 class TeachersListScreen extends StatefulWidget {
   final Institution institution;
@@ -510,7 +633,7 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
 }
 
 // ==========================================
-// 3. شاشة إدارة الأقسام والأرشيف السنوي
+// 3. شاشة إدارة الأقسام والجدول الأسبوعي والنسخ الاحتياطي
 // ==========================================
 class ClassesScreen extends StatefulWidget {
   final Institution institution;
@@ -574,6 +697,44 @@ class _ClassesScreenState extends State<ClassesScreen> {
     );
   }
 
+  void _showTimetableDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('جدول الحصص والتوقيت الأسبوعي'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: widget.teacher.timetable.isEmpty
+              ? const Center(child: Text('لا توجد حصص مضافة في الجدول بعد.'))
+              : ListView.builder(
+                  itemCount: widget.teacher.timetable.length,
+                  itemBuilder: (context, index) {
+                    final item = widget.teacher.timetable[index];
+                    return Card(
+                      child: ListTile(
+                        title: Text('${item.day} | ${item.timeSlot}'),
+                        subtitle: Text('القسم: ${item.className} | القاعة: ${item.room}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () async {
+                            setState(() { widget.teacher.timetable.removeAt(index); });
+                            await SchoolData.saveData();
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        ],
+      ),
+    );
+  }
+
   void _showBackupRestoreDialog() {
     final backupCtrl = TextEditingController(text: SchoolData.exportBackupJson());
     showDialog(
@@ -622,6 +783,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
       appBar: AppBar(
         title: Text('${widget.teacher.name} (${widget.teacher.subject})'),
         actions: [
+          IconButton(icon: const Icon(Icons.calendar_today), tooltip: 'جدول الحصص', onPressed: _showTimetableDialog),
           IconButton(icon: const Icon(Icons.settings_backup_restore), tooltip: 'النسخ الاحتياطي', onPressed: _showBackupRestoreDialog),
         ],
       ),
@@ -753,7 +915,7 @@ class DashboardCard extends StatelessWidget {
 }
 
 // ==========================================
-// 5. شاشة أرشيف سجل القسم اليومي خلال كل أيام السنة
+// 5. شاشة أرشيف سجل القسم اليومي
 // ==========================================
 class ClassArchiveScreen extends StatelessWidget {
   final SchoolClass schoolClass;
@@ -764,7 +926,7 @@ class ClassArchiveScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('أرشيف سجل القسم: ${schoolClass.name}')),
       body: schoolClass.dailyRecords.isEmpty
-          ? const Center(child: Text('لا توجد سجلات يومية محفوظة بعد.\n(يتم حفظ السجل تلقائياً عند إتمام وضع الحصة السريع).', textAlign: TextAlign.center))
+          ? const Center(child: Text('لا توجد سجلات يومية محفوظة بعد.', textAlign: TextAlign.center))
           : ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: schoolClass.dailyRecords.length,
@@ -902,7 +1064,7 @@ class _LessonNotesScreenState extends State<LessonNotesScreen> {
 }
 
 // ==========================================
-// 7. وضع الحصة السريع (مع الأرشفة اليومية التلقائية)
+// 7. وضع الحصة السريع
 // ==========================================
 class QuickRollCallScreen extends StatefulWidget {
   final SchoolClass schoolClass;
@@ -930,7 +1092,7 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
             children: [
               const Icon(Icons.check_circle, size: 80, color: Colors.green),
               const SizedBox(height: 16),
-              const Text('تم إكمال وحفظ نداء الحصة وأرشفته في السجل السنوي بنجاح!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              const Text('تم إكمال وحفظ نداء الحصة وأرشفته بنجاح!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               ElevatedButton(onPressed: () => setState(() => currentIndex = 0), child: const Text('إعادة النداء')),
             ],
@@ -1027,7 +1189,7 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
   }
 
   void _setStatus(Student student, String status, {String? customTime, String? reason}) async {
-    String todayStr = '12/10/2026'; // التاريخ الحالي للحصة
+    String todayStr = '12/10/2026';
     setState(() {
       student.status = status;
       if (status == 'هرب' || status == 'خروج بإذن') {
@@ -1045,7 +1207,6 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
         date: todayStr,
       ));
 
-      // أرشفة السجل اليومي للقسم
       DailyAttendanceRecord? todayRecord = widget.schoolClass.dailyRecords.where((d) => d.date == todayStr).firstOrNull;
       Map<String, String> statusMap = {
         'name': '${student.lastName} ${student.firstName}',
@@ -1174,7 +1335,7 @@ class _GradesScreenState extends State<GradesScreen> {
 }
 
 // ==========================================
-// 9. واجهة التلاميذ الشاملة (مع السجل التاريخي الفردي لكل تلميذ)
+// 9. واجهة التلاميذ الشاملة (مع طباعة تقارير PDF وسجل تاريخي)
 // ==========================================
 class StudentsScreen extends StatefulWidget {
   final Institution institution;
@@ -1196,22 +1357,45 @@ class _StudentsScreenState extends State<StudentsScreen> {
     await SchoolData.saveData();
   }
 
-  void _exportExcelCsv() {
-    String csv = 'اللقب,الاسم,رقم التسجيل,الحالة,التوقيت,السبب,النقاط,المعدل\n';
-    for (var s in widget.schoolClass.students) {
-      csv += '${s.lastName},${s.firstName},${s.regNumber},${s.status},${s.exitTime ?? "-"},${s.exitReason ?? "-"},${s.points},${s.average}\n';
+  void _exportPdfReport(Student student) {
+    String reportText = '''
+========================================
+       الجمهورية الجزائرية الديمقراطية الشعبية
+         وثيقة متابعة تلميذ رسمية
+========================================
+المؤسسة: ${widget.institution.name}
+الأستاذ: ${widget.teacher.name} (${widget.teacher.subject})
+القسم: ${widget.schoolClass.name}
+----------------------------------------
+بيانات التلميذ:
+- اللقب والاسم: ${student.lastName} ${student.firstName}
+- رقم التسجيل: ${student.regNumber}
+- تاريخ ومكان الميلاد: ${student.birthDate} بـ ${student.birthPlace}
+- الحالة الحالية: ${student.status}
+- نقاط السلوك: ${student.points}
+- المعدل الفصلل: ${student.average.toStringAsFixed(2)} / 20
+----------------------------------------
+السجل التاريخي للغياب والحالات:
+''';
+    for (var l in student.logs) {
+      reportText += '- [${l.date} ${l.time}] ${l.description} ${l.reason != null ? "(السبب: ${l.reason})" : ""}\n';
     }
+    reportText += '========================================';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تصدير بيانات القسم (CSV / Excel)'),
-        content: SizedBox(width: double.maxFinite, child: SingleChildScrollView(child: SelectableText(csv, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)))),
+        title: Text('تقرير رسمي (PDF جاهز للطباعة)'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(child: SelectableText(reportText, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
           ElevatedButton.icon(
             icon: const Icon(Icons.copy),
-            label: const Text('نسخ البيانات'),
-            onPressed: () { Clipboard.setData(ClipboardData(text: csv)); Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم النسخ بنجاح!'))); },
+            label: const Text('نسخ التقرير'),
+            onPressed: () { Clipboard.setData(ClipboardData(text: reportText)); Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ التقرير الرسمي بنجاح!'))); },
           ),
         ],
       ),
@@ -1222,12 +1406,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('السجل التاريخي الشامل: ${student.lastName} ${student.firstName}'),
+        title: Text('السجل التاريخي: ${student.lastName} ${student.firstName}'),
         content: SizedBox(
           width: double.maxFinite,
           height: 350,
           child: student.logs.isEmpty
-              ? const Center(child: Text('لا توجد سجلات تاريخية محفوظة لهذا التلميذ.'))
+              ? const Center(child: Text('لا توجد سجلات تاريخية محفوظة.'))
               : ListView.builder(
                   itemCount: student.logs.length,
                   itemBuilder: (context, index) {
@@ -1239,13 +1423,16 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           child: Text('${log.pointsChange >= 0 ? "+" : ""}${log.pointsChange}', style: const TextStyle(color: Colors.white, fontSize: 12)),
                         ),
                         title: Text(log.description),
-                        subtitle: Text('التاريخ: ${log.date} | التوقيت: ${log.time}${log.reason != null ? " | السبب: ${log.reason}" : ""}'),
+                        subtitle: Text('التاريخ: ${log.date} | الوقت: ${log.time}${log.reason != null ? " | السبب: ${log.reason}" : ""}'),
                       ),
                     );
                   },
                 ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
+        actions: [
+          TextButton.icon(icon: const Icon(Icons.print), label: const Text('تقرير PDF'), onPressed: () => _exportPdfReport(student)),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        ],
       ),
     );
   }
@@ -1427,7 +1614,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
       appBar: AppBar(
         title: Text(widget.schoolClass.name),
         actions: [
-          IconButton(icon: const Icon(Icons.table_chart), tooltip: 'تصدير Excel', onPressed: _exportExcelCsv),
           IconButton(icon: const Icon(Icons.sort_by_alpha), tooltip: 'ترتيب أبجدي', onPressed: _sortAlphabetically),
         ],
       ),
@@ -1506,7 +1692,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       Text('النقاط: ${student.points}', style: const TextStyle(fontWeight: FontWeight.bold)),
                                       IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showPointsDialog(student, true)),
                                       IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showPointsDialog(student, false)),
-                                      IconButton(icon: const Icon(Icons.history, color: Colors.indigo, tooltip: 'السجل التاريخي'), onPressed: () => _showStudentHistory(student)),
+                                      IconButton(icon: const Icon(Icons.history, color: Colors.indigo, tooltip: 'السجل والتاريخ'), onPressed: () => _showStudentHistory(student)),
                                     ],
                                   ),
                                 ],
