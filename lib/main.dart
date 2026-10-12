@@ -48,14 +48,24 @@ class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
   }
 }
 
-// نماذج البيانات
+// ==========================================
+// نماذج البيانات (Models)
+// ==========================================
 class BehaviorLog {
   final String description;
   final int pointsChange;
   final String time;
-  BehaviorLog({required this.description, required this.pointsChange, required this.time});
-  Map<String, dynamic> toJson() => {'description': description, 'pointsChange': pointsChange, 'time': time};
-  factory BehaviorLog.fromJson(Map<String, dynamic> json) => BehaviorLog(description: json['description'], pointsChange: json['pointsChange'], time: json['time']);
+  final String? reason;
+
+  BehaviorLog({required this.description, required this.pointsChange, required this.time, this.reason});
+
+  Map<String, dynamic> toJson() => {'description': description, 'pointsChange': pointsChange, 'time': time, 'reason': reason};
+  factory BehaviorLog.fromJson(Map<String, dynamic> json) => BehaviorLog(
+        description: json['description'],
+        pointsChange: json['pointsChange'],
+        time: json['time'],
+        reason: json['reason'],
+      );
 }
 
 class LessonNote {
@@ -76,6 +86,7 @@ class Student {
   String birthPlace;
   String status;
   String? exitTime;
+  String? exitReason;
   int points;
   double exam1;
   double exam2;
@@ -91,6 +102,7 @@ class Student {
     required this.birthPlace,
     this.status = 'حاضر',
     this.exitTime,
+    this.exitReason,
     this.points = 0,
     this.exam1 = 0.0,
     this.exam2 = 0.0,
@@ -109,6 +121,7 @@ class Student {
         'birthPlace': birthPlace,
         'status': status,
         'exitTime': exitTime,
+        'exitReason': exitReason,
         'points': points,
         'exam1': exam1,
         'exam2': exam2,
@@ -125,6 +138,7 @@ class Student {
         birthPlace: json['birthPlace'],
         status: json['status'] ?? 'حاضر',
         exitTime: json['exitTime'],
+        exitReason: json['exitReason'],
         points: json['points'] ?? 0,
         exam1: (json['exam1'] ?? 0.0).toDouble(),
         exam2: (json['exam2'] ?? 0.0).toDouble(),
@@ -241,9 +255,9 @@ class SchoolData {
   }
 }
 
-// ------------------------------------------------------------------
-// 1. شاشة إدارة المؤسسات (إضافة، تعديل، حذف)
-// ------------------------------------------------------------------
+// ==========================================
+// 1. شاشة إدارة المؤسسات
+// ==========================================
 class InstitutionsListScreen extends StatefulWidget {
   const InstitutionsListScreen({super.key, required this.onThemeToggle, required this.isDarkMode});
   final VoidCallback onThemeToggle;
@@ -315,11 +329,15 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
       appBar: AppBar(
         title: const Text('المؤسسات التربوية'),
         actions: [
-          IconButton(icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode), onPressed: widget.onThemeToggle),
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onThemeToggle,
+            tooltip: 'تغيير المظهر (ليلي/نهاري)',
+          ),
         ],
       ),
       body: SchoolData.institutions.isEmpty
-          ? const Center(child: Text('لا توجد مؤسسات مضافة بعد. اضغط على زر الإضافة.'))
+          ? const Center(child: Text('لا توجد مؤسسات مضافة بعد.'))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: SchoolData.institutions.length,
@@ -343,7 +361,7 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
                       ],
                     ),
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => TeachersListScreen(institution: inst))).then((_) => setState(() {}));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => TeachersListScreen(institution: inst, onThemeToggle: widget.onThemeToggle, isDarkMode: widget.isDarkMode))).then((_) => setState(() {}));
                     },
                   ),
                 );
@@ -360,12 +378,14 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
   }
 }
 
-// ------------------------------------------------------------------
-// 2. شاشة إدارة الأساتذة والمواد (إضافة، تعديل، حذف)
-// ------------------------------------------------------------------
+// ==========================================
+// 2. شاشة إدارة الأساتذة والمواد
+// ==========================================
 class TeachersListScreen extends StatefulWidget {
   final Institution institution;
-  const TeachersListScreen({super.key, required this.institution});
+  final VoidCallback onThemeToggle;
+  final bool isDarkMode;
+  const TeachersListScreen({super.key, required this.institution, required this.onThemeToggle, required this.isDarkMode});
 
   @override
   State<TeachersListScreen> createState() => _TeachersListScreenState();
@@ -417,7 +437,7 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف الأستاذ'),
-        content: Text('هل أنت متأكد من حذف الأستاذ "${teacher.name}"؟ سيتم حذف جميع أقسامه وتلاميذه التابعين له.'),
+        content: Text('هل أنت متأكد من حذف الأستاذ "${teacher.name}"؟'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
@@ -439,9 +459,14 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.institution.name)),
+      appBar: AppBar(
+        title: Text(widget.institution.name),
+        actions: [
+          IconButton(icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode), onPressed: widget.onThemeToggle),
+        ],
+      ),
       body: widget.institution.teachers.isEmpty
-          ? const Center(child: Text('لا يوجد أساتذة مضافون في هذه المؤسسة.'))
+          ? const Center(child: Text('لا يوجد أساتذة مضافون.'))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: widget.institution.teachers.length,
@@ -482,9 +507,9 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
   }
 }
 
-// ------------------------------------------------------------------
-// 3. شاشة إدارة الأقسام
-// ------------------------------------------------------------------
+// ==========================================
+// 3. شاشة إدارة الأقسام والنسخ الاحتياطي
+// ==========================================
 class ClassesScreen extends StatefulWidget {
   final Institution institution;
   final Teacher teacher;
@@ -618,7 +643,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
           ),
           Expanded(
             child: widget.teacher.classes.isEmpty
-                ? const Center(child: Text('لا توجد أقسام مضافة لهذا الأستاذ بعد.'))
+                ? const Center(child: Text('لا توجد أقسام مضافة بعد.'))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: widget.teacher.classes.length,
@@ -662,9 +687,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
   }
 }
 
-// ------------------------------------------------------------------
-// 4. مركز قيادة القسم
-// ------------------------------------------------------------------
+// ==========================================
+// 4. مركز قيادة القسم (Class Dashboard)
+// ==========================================
 class ClassDashboardScreen extends StatelessWidget {
   final Institution institution;
   final Teacher teacher;
@@ -727,9 +752,9 @@ class DashboardCard extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------------
+// ==========================================
 // 5. دفتر النصوص الرقمي
-// ------------------------------------------------------------------
+// ==========================================
 class LessonNotesScreen extends StatefulWidget {
   final SchoolClass schoolClass;
   const LessonNotesScreen({super.key, required this.schoolClass});
@@ -833,9 +858,9 @@ class _LessonNotesScreenState extends State<LessonNotesScreen> {
   }
 }
 
-// ------------------------------------------------------------------
-// 6. وضع الحصة السريع
-// ------------------------------------------------------------------
+// ==========================================
+// 6. وضع الحصة السريع (مع التوقيت والسبب)
+// ==========================================
 class QuickRollCallScreen extends StatefulWidget {
   final SchoolClass schoolClass;
   const QuickRollCallScreen({super.key, required this.schoolClass});
@@ -908,8 +933,8 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                RollButton(label: 'هرب', color: Colors.deepOrange, icon: Icons.directions_run, onTap: () => _setStatus(student, 'هرب')),
-                RollButton(label: 'إذن', color: Colors.amber.shade800, icon: Icons.exit_to_app, onTap: () => _setStatus(student, 'خروج بإذن')),
+                RollButton(label: 'هرب', color: Colors.deepOrange, icon: Icons.directions_run, onTap: () => _handleExitDetails(student, 'هرب')),
+                RollButton(label: 'إذن', color: Colors.amber.shade800, icon: Icons.exit_to_app, onTap: () => _handleExitDetails(student, 'خروج بإذن')),
               ],
             ),
           ],
@@ -918,12 +943,71 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
     );
   }
 
-  void _setStatus(Student student, String status) async {
+  void _handleExitDetails(Student student, String status) {
+    TimeOfDay selectedTime = TimeOfDay.now();
+    final reasonCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('تفاصيل حالة: $status'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.access_time, color: Colors.indigo),
+                title: Text('التوقيت: ${selectedTime.format(context)}'),
+                trailing: const Icon(Icons.edit),
+                onTap: () async {
+                  final picked = await showTimePicker(context: context, initialTime: selectedTime);
+                  if (picked != null) {
+                    setDialogState(() {
+                      selectedTime = picked;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reasonCtrl,
+                decoration: InputDecoration(
+                  labelText: status == 'هرب' ? 'سبب أو تفاصيل الهروب' : 'سبب الخروج بإذن',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _setStatus(student, status, customTime: selectedTime.format(context), reason: reasonCtrl.text.isEmpty ? 'بدون سبب مذكور' : reasonCtrl.text);
+              },
+              child: const Text('تأكيد وتسجيل'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setStatus(Student student, String status, {String? customTime, String? reason}) async {
     setState(() {
       student.status = status;
       if (status == 'هرب' || status == 'خروج بإذن') {
-        student.exitTime = TimeOfDay.now().format(context);
-        student.logs.add(BehaviorLog(description: 'حالة الحصة السريعة: $status', pointsChange: 0, time: student.exitTime!));
+        student.exitTime = customTime ?? TimeOfDay.now().format(context);
+        student.exitReason = reason;
+        student.logs.add(BehaviorLog(
+          description: 'حالة الحصة السريعة: $status',
+          pointsChange: 0,
+          time: student.exitTime!,
+          reason: student.exitReason,
+        ));
+      } else {
+        student.exitTime = null;
+        student.exitReason = null;
       }
       currentIndex++;
     });
@@ -949,9 +1033,9 @@ class RollButton extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------------
-// 7. حساب المعدلات والترتيب
-// ------------------------------------------------------------------
+// ==========================================
+// 7. حساب المعدلات والترتيب الفصلي
+// ==========================================
 class GradesScreen extends StatefulWidget {
   final SchoolClass schoolClass;
   const GradesScreen({super.key, required this.schoolClass});
@@ -1038,9 +1122,9 @@ class _GradesScreenState extends State<GradesScreen> {
   }
 }
 
-// ------------------------------------------------------------------
-// 8. واجهة التلاميذ الشاملة
-// ------------------------------------------------------------------
+// ==========================================
+// 8. واجهة التلاميذ الشاملة (قائمة، بحث، استيراد، تصدير، سلوك، توقيت)
+// ==========================================
 class StudentsScreen extends StatefulWidget {
   final Institution institution;
   final Teacher teacher;
@@ -1062,9 +1146,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
   }
 
   void _exportExcelCsv() {
-    String csv = 'اللقب,الاسم,رقم التسجيل,الحالة,النقاط,المعدل\n';
+    String csv = 'اللقب,الاسم,رقم التسجيل,الحالة,التوقيت,السبب,النقاط,المعدل\n';
     for (var s in widget.schoolClass.students) {
-      csv += '${s.lastName},${s.firstName},${s.regNumber},${s.status},${s.points},${s.average}\n';
+      csv += '${s.lastName},${s.firstName},${s.regNumber},${s.status},${s.exitTime ?? "-"},${s.exitReason ?? "-"},${s.points},${s.average}\n';
     }
 
     showDialog(
@@ -1136,6 +1220,76 @@ class _StudentsScreenState extends State<StudentsScreen> {
         ],
       ),
     );
+  }
+
+  void _showStatusDialog(Student student, String newStatus) {
+    if (newStatus == 'هرب' || newStatus == 'خروج بإذن') {
+      TimeOfDay selectedTime = TimeOfDay.now();
+      final reasonCtrl = TextEditingController(text: student.exitReason ?? '');
+
+      showDialog(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text('تفاصيل: $newStatus'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.access_time, color: Colors.indigo),
+                  title: Text('التوقيت: ${selectedTime.format(context)}'),
+                  trailing: const Icon(Icons.edit),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: context, initialTime: selectedTime);
+                    if (picked != null) {
+                      setDialogState(() {
+                        selectedTime = picked;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: reasonCtrl,
+                  decoration: InputDecoration(
+                    labelText: newStatus == 'هرب' ? 'سبب/تفاصيل الهروب' : 'سبب الخروج بإذن',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+              ElevatedButton(
+                onPressed: () async {
+                  setState(() {
+                    student.status = newStatus;
+                    student.exitTime = selectedTime.format(context);
+                    student.exitReason = reasonCtrl.text.isEmpty ? 'بدون سبب مذكور' : reasonCtrl.text;
+                    student.logs.add(BehaviorLog(
+                      description: 'تغيير الحالة إلى: $newStatus',
+                      pointsChange: 0,
+                      time: student.exitTime!,
+                      reason: student.exitReason,
+                    ));
+                  });
+                  await SchoolData.saveData();
+                  Navigator.pop(context);
+                },
+                child: const Text('تأكيد'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      setState(() {
+        student.status = newStatus;
+        student.exitTime = null;
+        student.exitReason = null;
+      });
+      SchoolData.saveData();
+    }
   }
 
   void _showStudentDialog({Student? student}) {
@@ -1225,10 +1379,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
               setState(() {
                 if (isAdd) {
                   student.points += val;
-                  student.logs.add(BehaviorLog(description: 'إضافة: ${reasonCtrl.text}', pointsChange: val, time: TimeOfDay.now().format(context)));
+                  student.logs.add(BehaviorLog(description: 'إضافة نقاط: ${reasonCtrl.text}', pointsChange: val, time: TimeOfDay.now().format(context)));
                 } else {
                   student.points -= val;
-                  student.logs.add(BehaviorLog(description: 'خصم: ${reasonCtrl.text}', pointsChange: -val, time: TimeOfDay.now().format(context)));
+                  student.logs.add(BehaviorLog(description: 'خصم نقاط: ${reasonCtrl.text}', pointsChange: -val, time: TimeOfDay.now().format(context)));
                 }
               });
               await SchoolData.saveData();
@@ -1258,12 +1412,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
                     return ListTile(
                       leading: CircleAvatar(backgroundColor: log.pointsChange >= 0 ? Colors.green : Colors.red, child: Text('${log.pointsChange >= 0 ? '+' : ''}${log.pointsChange}', style: const TextStyle(color: Colors.white, fontSize: 12))),
                       title: Text(log.description),
-                      subtitle: Text('التوقيت: ${log.time}'),
+                      subtitle: Text('التوقيت: ${log.time}${log.reason != null ? " | السبب: ${log.reason}" : ""}'),
                     );
                   },
                 ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
       ),
     );
   }
@@ -1335,6 +1489,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   ),
                                 ],
                               ),
+                              if (student.exitTime != null) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(8)),
+                                  child: Text('التوقيت: ${student.exitTime} | السبب: ${student.exitReason ?? "غير محدد"}', style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
                               const Divider(height: 16),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1342,15 +1504,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   DropdownButton<String>(
                                     value: student.status,
                                     items: ['حاضر', 'غائب', 'هرب', 'خروج بإذن'].map((st) => DropdownMenuItem(value: st, child: Text(st, style: TextStyle(color: st == 'حاضر' ? Colors.green : (st == 'غائب' ? Colors.red : Colors.orange), fontWeight: FontWeight.bold)))).toList(),
-                                    onChanged: (val) async {
-                                      setState(() {
-                                        student.status = val!;
-                                        if (val == 'هرب' || val == 'خروج بإذن') {
-                                          student.exitTime = TimeOfDay.now().format(context);
-                                          student.logs.add(BehaviorLog(description: 'حالة: $val', pointsChange: 0, time: student.exitTime!));
-                                        }
-                                      });
-                                      await SchoolData.saveData();
+                                    onChanged: (val) {
+                                      if (val != null) _showStatusDialog(student, val);
                                     },
                                   ),
                                   Row(
