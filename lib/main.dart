@@ -49,22 +49,24 @@ class _SchoolTrackerAppState extends State<SchoolTrackerApp> {
 }
 
 // ==========================================
-// نماذج البيانات (Models)
+// نماذج البيانات (Models) مع سجل الأيام التاريخي
 // ==========================================
 class BehaviorLog {
   final String description;
   final int pointsChange;
   final String time;
   final String? reason;
+  final String date;
 
-  BehaviorLog({required this.description, required this.pointsChange, required this.time, this.reason});
+  BehaviorLog({required this.description, required this.pointsChange, required this.time, this.reason, required this.date});
 
-  Map<String, dynamic> toJson() => {'description': description, 'pointsChange': pointsChange, 'time': time, 'reason': reason};
+  Map<String, dynamic> toJson() => {'description': description, 'pointsChange': pointsChange, 'time': time, 'reason': reason, 'date': date};
   factory BehaviorLog.fromJson(Map<String, dynamic> json) => BehaviorLog(
-        description: json['description'],
-        pointsChange: json['pointsChange'],
-        time: json['time'],
+        description: json['description'] ?? '',
+        pointsChange: json['pointsChange'] ?? 0,
+        time: json['time'] ?? '',
         reason: json['reason'],
+        date: json['date'] ?? 'غير محدد',
       );
 }
 
@@ -76,6 +78,20 @@ class LessonNote {
   LessonNote({required this.date, required this.title, required this.summary, required this.homework});
   Map<String, dynamic> toJson() => {'date': date, 'title': title, 'summary': summary, 'homework': homework};
   factory LessonNote.fromJson(Map<String, dynamic> json) => LessonNote(date: json['date'], title: json['title'], summary: json['summary'], homework: json['homework']);
+}
+
+// نموذج لحفظ السجل اليومي الكامل للقسم في تاريخ محدد
+class DailyAttendanceRecord {
+  String date; // مثال: 12/10/2026
+  List<Map<String, String>> studentStatuses; // اسم التلميذ، حالته، التوقيت، السبب
+
+  DailyAttendanceRecord({required this.date, required this.studentStatuses});
+
+  Map<String, dynamic> toJson() => {'date': date, 'studentStatuses': studentStatuses};
+  factory DailyAttendanceRecord.fromJson(Map<String, dynamic> json) => DailyAttendanceRecord(
+        date: json['date'] ?? '',
+        studentStatuses: json['studentStatuses'] != null ? List<Map<String, String>>.from((json['studentStatuses'] as List).map((e) => Map<String, String>.from(e))) : [],
+      );
 }
 
 class Student {
@@ -131,11 +147,11 @@ class Student {
       };
 
   factory Student.fromJson(Map<String, dynamic> json) => Student(
-        firstName: json['firstName'],
-        lastName: json['lastName'],
-        regNumber: json['regNumber'],
-        birthDate: json['birthDate'],
-        birthPlace: json['birthPlace'],
+        firstName: json['firstName'] ?? '',
+        lastName: json['lastName'] ?? '',
+        regNumber: json['regNumber'] ?? '',
+        birthDate: json['birthDate'] ?? '',
+        birthPlace: json['birthPlace'] ?? '',
         status: json['status'] ?? 'حاضر',
         exitTime: json['exitTime'],
         exitReason: json['exitReason'],
@@ -152,18 +168,24 @@ class SchoolClass {
   String name;
   List<Student> students;
   List<LessonNote> lessonNotes;
-  SchoolClass({required this.name, required this.students, List<LessonNote>? lessonNotes}) : lessonNotes = lessonNotes ?? [];
+  List<DailyAttendanceRecord> dailyRecords; // الأرشيف السنوي لأيام القسم
+
+  SchoolClass({required this.name, required this.students, List<LessonNote>? lessonNotes, List<DailyAttendanceRecord>? dailyRecords})
+      : lessonNotes = lessonNotes ?? [],
+        dailyRecords = dailyRecords ?? [];
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'students': students.map((s) => s.toJson()).toList(),
         'lessonNotes': lessonNotes.map((l) => l.toJson()).toList(),
+        'dailyRecords': dailyRecords.map((d) => d.toJson()).toList(),
       };
 
   factory SchoolClass.fromJson(Map<String, dynamic> json) => SchoolClass(
-        name: json['name'],
+        name: json['name'] ?? '',
         students: json['students'] != null ? (json['students'] as List).map((s) => Student.fromJson(s)).toList() : [],
         lessonNotes: json['lessonNotes'] != null ? (json['lessonNotes'] as List).map((l) => LessonNote.fromJson(l)).toList() : [],
+        dailyRecords: json['dailyRecords'] != null ? (json['dailyRecords'] as List).map((d) => DailyAttendanceRecord.fromJson(d)).toList() : [],
       );
 }
 
@@ -174,15 +196,10 @@ class Teacher {
 
   Teacher({required this.name, required this.subject, List<SchoolClass>? classes}) : classes = classes ?? [];
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'subject': subject,
-        'classes': classes.map((c) => c.toJson()).toList(),
-      };
-
+  Map<String, dynamic> toJson() => {'name': name, 'subject': subject, 'classes': classes.map((c) => c.toJson()).toList()};
   factory Teacher.fromJson(Map<String, dynamic> json) => Teacher(
-        name: json['name'],
-        subject: json['subject'],
+        name: json['name'] ?? '',
+        subject: json['subject'] ?? '',
         classes: json['classes'] != null ? (json['classes'] as List).map((c) => SchoolClass.fromJson(c)).toList() : [],
       );
 }
@@ -193,13 +210,9 @@ class Institution {
 
   Institution({required this.name, List<Teacher>? teachers}) : teachers = teachers ?? [];
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'teachers': teachers.map((t) => t.toJson()).toList(),
-      };
-
+  Map<String, dynamic> toJson() => {'name': name, 'teachers': teachers.map((t) => t.toJson()).toList()};
   factory Institution.fromJson(Map<String, dynamic> json) => Institution(
-        name: json['name'],
+        name: json['name'] ?? '',
         teachers: json['teachers'] != null ? (json['teachers'] as List).map((t) => Teacher.fromJson(t)).toList() : [],
       );
 }
@@ -239,9 +252,7 @@ class SchoolData {
     }
   }
 
-  static String exportBackupJson() {
-    return jsonEncode(institutions.map((i) => i.toJson()).toList());
-  }
+  static String exportBackupJson() => jsonEncode(institutions.map((i) => i.toJson()).toList());
 
   static Future<bool> importBackupJson(String jsonString) async {
     try {
@@ -270,12 +281,11 @@ class InstitutionsListScreen extends StatefulWidget {
 class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
   void _showInstitutionDialog({Institution? institution}) {
     final nameCtrl = TextEditingController(text: institution?.name ?? '');
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(institution == null ? 'إضافة مؤسسة جديدة' : 'تعديل اسم المؤسسة'),
-        content: TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم المؤسسة', hintText: 'مثال: ثانوية النجاح')),
+        content: TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم المؤسسة')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
@@ -304,15 +314,13 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف المؤسسة'),
-        content: Text('هل أنت متأكد من حذف مؤسسة "${institution.name}"؟ سيتم حذف جميع الأساتذة والأقسام والتلاميذ التابعين لها.'),
+        content: Text('هل أنت متأكد من حذف مؤسسة "${institution.name}"؟'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              setState(() {
-                SchoolData.institutions.remove(institution);
-              });
+              setState(() { SchoolData.institutions.remove(institution); });
               await SchoolData.saveData();
               Navigator.pop(context);
             },
@@ -329,11 +337,7 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
       appBar: AppBar(
         title: const Text('المؤسسات التربوية'),
         actions: [
-          IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: widget.onThemeToggle,
-            tooltip: 'تغيير المظهر (ليلي/نهاري)',
-          ),
+          IconButton(icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode), onPressed: widget.onThemeToggle),
         ],
       ),
       body: SchoolData.institutions.isEmpty
@@ -443,9 +447,7 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              setState(() {
-                widget.institution.teachers.remove(teacher);
-              });
+              setState(() { widget.institution.teachers.remove(teacher); });
               await SchoolData.saveData();
               Navigator.pop(context);
             },
@@ -508,7 +510,7 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
 }
 
 // ==========================================
-// 3. شاشة إدارة الأقسام والنسخ الاحتياطي
+// 3. شاشة إدارة الأقسام والأرشيف السنوي
 // ==========================================
 class ClassesScreen extends StatefulWidget {
   final Institution institution;
@@ -522,7 +524,6 @@ class ClassesScreen extends StatefulWidget {
 class _ClassesScreenState extends State<ClassesScreen> {
   void _showClassDialog({SchoolClass? schoolClass}) {
     final classCtrl = TextEditingController(text: schoolClass?.name ?? '');
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -562,9 +563,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              setState(() {
-                widget.teacher.classes.remove(schoolClass);
-              });
+              setState(() { widget.teacher.classes.remove(schoolClass); });
               await SchoolData.saveData();
               Navigator.pop(context);
             },
@@ -587,7 +586,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('انسخ هذا الكود كنسخة احتياطية لبياناتك، أو ألصق كود النسخة هنا للاستعادة:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const Text('انسخ هذا الكود كنسخة احتياطية لبياناتك:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                 const SizedBox(height: 10),
                 TextField(controller: backupCtrl, maxLines: 6, decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               ],
@@ -709,7 +708,8 @@ class ClassDashboardScreen extends StatelessWidget {
           children: [
             DashboardCard(title: 'قائمة التلاميذ', subtitle: '${schoolClass.students.length} تلميذ', icon: Icons.people, color: const Color(0xFF1E3A8A), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => StudentsScreen(institution: institution, teacher: teacher, schoolClass: schoolClass)))),
             DashboardCard(title: 'وضع الحصة السريع', subtitle: 'نداء وسرعة حضور', icon: Icons.bolt, color: const Color(0xFF0D9488), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => QuickRollCallScreen(schoolClass: schoolClass)))),
-            DashboardCard(title: 'دفتر النصوص الرقمي', subtitle: '${schoolClass.lessonNotes.length} درس مسجل', icon: Icons.menu_book, color: Colors.indigo, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LessonNotesScreen(schoolClass: schoolClass)))),
+            DashboardCard(title: 'دفتر النصوص', subtitle: '${schoolClass.lessonNotes.length} درس مسجل', icon: Icons.menu_book, color: Colors.indigo, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LessonNotesScreen(schoolClass: schoolClass)))),
+            DashboardCard(title: 'سجل القسم اليومي', subtitle: 'أرشيف أيام السنة', icon: Icons.calendar_month, color: Colors.brown, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ClassArchiveScreen(schoolClass: schoolClass)))),
             DashboardCard(title: 'حساب المعدلات', subtitle: 'الفرض والاختبار والترتيب', icon: Icons.calculate, color: Colors.deepOrange, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => GradesScreen(schoolClass: schoolClass)))),
           ],
         ),
@@ -753,7 +753,50 @@ class DashboardCard extends StatelessWidget {
 }
 
 // ==========================================
-// 5. دفتر النصوص الرقمي
+// 5. شاشة أرشيف سجل القسم اليومي خلال كل أيام السنة
+// ==========================================
+class ClassArchiveScreen extends StatelessWidget {
+  final SchoolClass schoolClass;
+  const ClassArchiveScreen({super.key, required this.schoolClass});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('أرشيف سجل القسم: ${schoolClass.name}')),
+      body: schoolClass.dailyRecords.isEmpty
+          ? const Center(child: Text('لا توجد سجلات يومية محفوظة بعد.\n(يتم حفظ السجل تلقائياً عند إتمام وضع الحصة السريع).', textAlign: TextAlign.center))
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: schoolClass.dailyRecords.length,
+              itemBuilder: (context, index) {
+                final record = schoolClass.dailyRecords[index];
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ExpansionTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFF1E3A8A), child: Icon(Icons.date_range, color: Colors.white)),
+                    title: Text('تاريخ الحصة: ${record.date}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('عدد الحالات المسجلة: ${record.studentStatuses.length} تلميذ'),
+                    children: [
+                      const Divider(),
+                      ...record.studentStatuses.map((st) => ListTile(
+                            dense: true,
+                            title: Text('${st['name']}'),
+                            subtitle: Text('الحالة: ${st['status']} ${st['reason'] != null && st['reason'] != "" ? "| السبب: ${st['reason']}" : ""}'),
+                            trailing: Text('${st['time']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          )),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+// ==========================================
+// 6. دفتر النصوص الرقمي
 // ==========================================
 class LessonNotesScreen extends StatefulWidget {
   final SchoolClass schoolClass;
@@ -859,7 +902,7 @@ class _LessonNotesScreenState extends State<LessonNotesScreen> {
 }
 
 // ==========================================
-// 6. وضع الحصة السريع (مع التوقيت والسبب)
+// 7. وضع الحصة السريع (مع الأرشفة اليومية التلقائية)
 // ==========================================
 class QuickRollCallScreen extends StatefulWidget {
   final SchoolClass schoolClass;
@@ -887,7 +930,7 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
             children: [
               const Icon(Icons.check_circle, size: 80, color: Colors.green),
               const SizedBox(height: 16),
-              const Text('تم إكمال النداء لجميع تلاميذ القسم بنجاح!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('تم إكمال وحفظ نداء الحصة وأرشفته في السجل السنوي بنجاح!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               ElevatedButton(onPressed: () => setState(() => currentIndex = 0), child: const Text('إعادة النداء')),
             ],
@@ -961,21 +1004,11 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
                 trailing: const Icon(Icons.edit),
                 onTap: () async {
                   final picked = await showTimePicker(context: context, initialTime: selectedTime);
-                  if (picked != null) {
-                    setDialogState(() {
-                      selectedTime = picked;
-                    });
-                  }
+                  if (picked != null) { setDialogState(() { selectedTime = picked; }); }
                 },
               ),
               const SizedBox(height: 10),
-              TextField(
-                controller: reasonCtrl,
-                decoration: InputDecoration(
-                  labelText: status == 'هرب' ? 'سبب أو تفاصيل الهروب' : 'سبب الخروج بإذن',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
+              TextField(controller: reasonCtrl, decoration: InputDecoration(labelText: 'السبب', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
             ],
           ),
           actions: [
@@ -983,9 +1016,9 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                _setStatus(student, status, customTime: selectedTime.format(context), reason: reasonCtrl.text.isEmpty ? 'بدون سبب مذكور' : reasonCtrl.text);
+                _setStatus(student, status, customTime: selectedTime.format(context), reason: reasonCtrl.text.isEmpty ? 'بدون سبب' : reasonCtrl.text);
               },
-              child: const Text('تأكيد وتسجيل'),
+              child: const Text('تأكيد'),
             ),
           ],
         ),
@@ -994,21 +1027,39 @@ class _QuickRollCallScreenState extends State<QuickRollCallScreen> {
   }
 
   void _setStatus(Student student, String status, {String? customTime, String? reason}) async {
+    String todayStr = '12/10/2026'; // التاريخ الحالي للحصة
     setState(() {
       student.status = status;
       if (status == 'هرب' || status == 'خروج بإذن') {
         student.exitTime = customTime ?? TimeOfDay.now().format(context);
         student.exitReason = reason;
-        student.logs.add(BehaviorLog(
-          description: 'حالة الحصة السريعة: $status',
-          pointsChange: 0,
-          time: student.exitTime!,
-          reason: student.exitReason,
-        ));
       } else {
         student.exitTime = null;
         student.exitReason = null;
       }
+      student.logs.add(BehaviorLog(
+        description: 'حالة الحصة: $status',
+        pointsChange: 0,
+        time: student.exitTime ?? TimeOfDay.now().format(context),
+        reason: student.exitReason,
+        date: todayStr,
+      ));
+
+      // أرشفة السجل اليومي للقسم
+      DailyAttendanceRecord? todayRecord = widget.schoolClass.dailyRecords.where((d) => d.date == todayStr).firstOrNull;
+      Map<String, String> statusMap = {
+        'name': '${student.lastName} ${student.firstName}',
+        'status': status,
+        'time': student.exitTime ?? '-',
+        'reason': student.exitReason ?? '-'
+      };
+      if (todayRecord != null) {
+        todayRecord.studentStatuses.removeWhere((s) => s['name'] == '${student.lastName} ${student.firstName}');
+        todayRecord.studentStatuses.add(statusMap);
+      } else {
+        widget.schoolClass.dailyRecords.add(DailyAttendanceRecord(date: todayStr, studentStatuses: [statusMap]));
+      }
+
       currentIndex++;
     });
     await SchoolData.saveData();
@@ -1034,7 +1085,7 @@ class RollButton extends StatelessWidget {
 }
 
 // ==========================================
-// 7. حساب المعدلات والترتيب الفصلي
+// 8. حساب المعدلات والترتيب الفصلي
 // ==========================================
 class GradesScreen extends StatefulWidget {
   final SchoolClass schoolClass;
@@ -1123,7 +1174,7 @@ class _GradesScreenState extends State<GradesScreen> {
 }
 
 // ==========================================
-// 8. واجهة التلاميذ الشاملة (قائمة، بحث، استيراد، تصدير، سلوك، توقيت)
+// 9. واجهة التلاميذ الشاملة (مع السجل التاريخي الفردي لكل تلميذ)
 // ==========================================
 class StudentsScreen extends StatefulWidget {
   final Institution institution;
@@ -1150,74 +1201,51 @@ class _StudentsScreenState extends State<StudentsScreen> {
     for (var s in widget.schoolClass.students) {
       csv += '${s.lastName},${s.firstName},${s.regNumber},${s.status},${s.exitTime ?? "-"},${s.exitReason ?? "-"},${s.points},${s.average}\n';
     }
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('تصدير بيانات القسم (CSV / Excel)'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(child: SelectableText(csv, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
-        ),
+        content: SizedBox(width: double.maxFinite, child: SingleChildScrollView(child: SelectableText(csv, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
           ElevatedButton.icon(
             icon: const Icon(Icons.copy),
             label: const Text('نسخ البيانات'),
-            onPressed: () { Clipboard.setData(ClipboardData(text: csv)); Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ الجدول جاهزاً للصق في Excel!'))); },
+            onPressed: () { Clipboard.setData(ClipboardData(text: csv)); Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم النسخ بنجاح!'))); },
           ),
         ],
       ),
     );
   }
 
-  void _showImportDialog() {
-    final importCtrl = TextEditingController();
+  void _showStudentHistory(Student student) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('استيراد قائمة التلاميذ الذكي'),
+        title: Text('السجل التاريخي الشامل: ${student.lastName} ${student.firstName}'),
         content: SizedBox(
           width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('قم بنسخ الأسماء من Excel أو Word أو PDF وألصقها هنا (كل تلميذ في سطر):', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                const SizedBox(height: 12),
-                TextField(controller: importCtrl, maxLines: 8, decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-              ],
-            ),
-          ),
+          height: 350,
+          child: student.logs.isEmpty
+              ? const Center(child: Text('لا توجد سجلات تاريخية محفوظة لهذا التلميذ.'))
+              : ListView.builder(
+                  itemCount: student.logs.length,
+                  itemBuilder: (context, index) {
+                    final log = student.logs[index];
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: log.pointsChange >= 0 ? Colors.green : Colors.red,
+                          child: Text('${log.pointsChange >= 0 ? "+" : ""}${log.pointsChange}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        ),
+                        title: Text(log.description),
+                        subtitle: Text('التاريخ: ${log.date} | التوقيت: ${log.time}${log.reason != null ? " | السبب: ${log.reason}" : ""}'),
+                      ),
+                    );
+                  },
+                ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-          ElevatedButton(
-            onPressed: () async {
-              if (importCtrl.text.isNotEmpty) {
-                List<String> lines = importCtrl.text.split('\n');
-                int count = 0;
-                setState(() {
-                  for (var line in lines) {
-                    String clean = line.trim();
-                    if (clean.isNotEmpty) {
-                      List<String> parts = clean.split(' ');
-                      String last = parts.isNotEmpty ? parts[0] : 'تلميذ';
-                      String first = parts.length > 1 ? parts.sublist(1).join(' ') : 'جديد';
-                      widget.schoolClass.students.add(Student(firstName: first, lastName: last, regNumber: '2026${200 + widget.schoolClass.students.length}', birthDate: '01/01/2010', birthPlace: 'الجلفة'));
-                      count++;
-                    }
-                  }
-                });
-                await SchoolData.saveData();
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم استيراد $count تلميذ بنجاح!')));
-              }
-            },
-            child: const Text('استيراد وحفظ'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
       ),
     );
   }
@@ -1241,36 +1269,28 @@ class _StudentsScreenState extends State<StudentsScreen> {
                   trailing: const Icon(Icons.edit),
                   onTap: () async {
                     final picked = await showTimePicker(context: context, initialTime: selectedTime);
-                    if (picked != null) {
-                      setDialogState(() {
-                        selectedTime = picked;
-                      });
-                    }
+                    if (picked != null) { setDialogState(() { selectedTime = picked; }); }
                   },
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: reasonCtrl,
-                  decoration: InputDecoration(
-                    labelText: newStatus == 'هرب' ? 'سبب/تفاصيل الهروب' : 'سبب الخروج بإذن',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+                TextField(controller: reasonCtrl, decoration: InputDecoration(labelText: 'السبب', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               ],
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
               ElevatedButton(
                 onPressed: () async {
+                  String todayStr = '12/10/2026';
                   setState(() {
                     student.status = newStatus;
                     student.exitTime = selectedTime.format(context);
-                    student.exitReason = reasonCtrl.text.isEmpty ? 'بدون سبب مذكور' : reasonCtrl.text;
+                    student.exitReason = reasonCtrl.text.isEmpty ? 'بدون سبب' : reasonCtrl.text;
                     student.logs.add(BehaviorLog(
-                      description: 'تغيير الحالة إلى: $newStatus',
+                      description: 'الحالة: $newStatus',
                       pointsChange: 0,
                       time: student.exitTime!,
                       reason: student.exitReason,
+                      date: todayStr,
                     ));
                   });
                   await SchoolData.saveData();
@@ -1376,13 +1396,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
           ElevatedButton(
             onPressed: () async {
               int val = int.tryParse(pointsCtrl.text) ?? 1;
+              String todayStr = '12/10/2026';
               setState(() {
                 if (isAdd) {
                   student.points += val;
-                  student.logs.add(BehaviorLog(description: 'إضافة نقاط: ${reasonCtrl.text}', pointsChange: val, time: TimeOfDay.now().format(context)));
+                  student.logs.add(BehaviorLog(description: 'إضافة نقاط: ${reasonCtrl.text}', pointsChange: val, time: TimeOfDay.now().format(context), reason: reasonCtrl.text, date: todayStr));
                 } else {
                   student.points -= val;
-                  student.logs.add(BehaviorLog(description: 'خصم نقاط: ${reasonCtrl.text}', pointsChange: -val, time: TimeOfDay.now().format(context)));
+                  student.logs.add(BehaviorLog(description: 'خصم نقاط: ${reasonCtrl.text}', pointsChange: -val, time: TimeOfDay.now().format(context), reason: reasonCtrl.text, date: todayStr));
                 }
               });
               await SchoolData.saveData();
@@ -1391,33 +1412,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
             child: const Text('تأكيد'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showStudentHistory(Student student) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('سجل: ${student.lastName} ${student.firstName}'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: student.logs.isEmpty
-              ? const Center(child: Text('لا توجد سجلات'))
-              : ListView.builder(
-                  itemCount: student.logs.length,
-                  itemBuilder: (context, index) {
-                    final log = student.logs[index];
-                    return ListTile(
-                      leading: CircleAvatar(backgroundColor: log.pointsChange >= 0 ? Colors.green : Colors.red, child: Text('${log.pointsChange >= 0 ? '+' : ''}${log.pointsChange}', style: const TextStyle(color: Colors.white, fontSize: 12))),
-                      title: Text(log.description),
-                      subtitle: Text('التوقيت: ${log.time}${log.reason != null ? " | السبب: ${log.reason}" : ""}'),
-                    );
-                  },
-                ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
       ),
     );
   }
@@ -1434,7 +1428,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
         title: Text(widget.schoolClass.name),
         actions: [
           IconButton(icon: const Icon(Icons.table_chart), tooltip: 'تصدير Excel', onPressed: _exportExcelCsv),
-          IconButton(icon: const Icon(Icons.file_upload), tooltip: 'استيراد', onPressed: _showImportDialog),
           IconButton(icon: const Icon(Icons.sort_by_alpha), tooltip: 'ترتيب أبجدي', onPressed: _sortAlphabetically),
         ],
       ),
@@ -1513,7 +1506,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       Text('النقاط: ${student.points}', style: const TextStyle(fontWeight: FontWeight.bold)),
                                       IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showPointsDialog(student, true)),
                                       IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showPointsDialog(student, false)),
-                                      IconButton(icon: const Icon(Icons.history, color: Colors.indigo), onPressed: () => _showStudentHistory(student)),
+                                      IconButton(icon: const Icon(Icons.history, color: Colors.indigo, tooltip: 'السجل التاريخي'), onPressed: () => _showStudentHistory(student)),
                                     ],
                                   ),
                                 ],
