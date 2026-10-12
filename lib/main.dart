@@ -18,14 +18,14 @@ class SchoolTrackerApp extends StatelessWidget {
           secondary: const Color(0xFF0D9488), // تيل عصري
         ),
         useMaterial3: true,
-        fontFamily: 'Cairo', // أو الخط الافتراضي الداعم للعربية
+        fontFamily: 'Cairo',
       ),
       home: const SetupInstitutionScreen(),
     );
   }
 }
 
-// 1. نموذج البيانات العام
+// نموذج البيانات العام
 class SchoolData {
   static String institutionName = 'ثانوية السعادة';
   static String teacherName = 'الأستاذ الكريم';
@@ -90,9 +90,7 @@ class Student {
   }) : logs = logs ?? [];
 }
 
-// ------------------------------------------------------------------
 // الشاشة الأولى: إعداد اسم المؤسسة
-// ------------------------------------------------------------------
 class SetupInstitutionScreen extends StatefulWidget {
   const SetupInstitutionScreen({super.key});
 
@@ -161,9 +159,7 @@ class _SetupInstitutionScreenState extends State<SetupInstitutionScreen> {
   }
 }
 
-// ------------------------------------------------------------------
 // الشاشة الثانية: إعداد الأستاذ والمادة
-// ------------------------------------------------------------------
 class SetupTeacherScreen extends StatefulWidget {
   const SetupTeacherScreen({super.key});
 
@@ -256,9 +252,7 @@ class _SetupTeacherScreenState extends State<SetupTeacherScreen> {
   }
 }
 
-// ------------------------------------------------------------------
 // الشاشة الثالثة: إدارة الأقسام
-// ------------------------------------------------------------------
 class ClassesScreen extends StatefulWidget {
   const ClassesScreen({super.key});
 
@@ -344,9 +338,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
   }
 }
 
-// ------------------------------------------------------------------
 // الشاشة الرابعة: واجهة التلاميذ المتقدمة داخل القسم
-// ------------------------------------------------------------------
 class StudentsScreen extends StatefulWidget {
   final SchoolClass schoolClass;
   const StudentsScreen({super.key, required this.schoolClass});
@@ -469,7 +461,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
           width: double.maxFinite,
           height: 300,
           child: student.logs.isEmpty
-              const Center(child: Text('لا توجد سجلات مسجلة بعد'))
+              ? const Center(child: Text('لا توجد سجلات مسجلة بعد'))
               : ListView.builder(
                   itemCount: student.logs.length,
                   itemBuilder: (context, index) {
@@ -509,7 +501,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         ],
       ),
       body: widget.schoolClass.students.isEmpty
-          const Center(child: Text('لا يوجد تلاميذ مسجلين في هذا القسم. اضغط على زر الإضافة.'))
+          ? const Center(child: Text('لا يوجد تلاميذ مسجلين في هذا القسم. اضغط على زر الإضافة.'))
           : ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: widget.schoolClass.students.length,
@@ -561,7 +553,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   color: status == 'حاضر' ? Colors.green : (status == 'غائب' ? Colors.red : Colors.orange),
                                   fontWeight: FontWeight.bold,
                                 )));
-                              }).onChanged: (val) {
+                              }).toList(),
+                              onChanged: (val) {
                                 setState(() {
                                   student.status = val!;
                                   if (val == 'خروج بإذن' || val == 'هرب') {
