@@ -1692,7 +1692,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       Text('النقاط: ${student.points}', style: const TextStyle(fontWeight: FontWeight.bold)),
                                       IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _showPointsDialog(student, true)),
                                       IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _showPointsDialog(student, false)),
-                                      IconButton(icon: const Icon(Icons.history, color: Colors.indigo, tooltip: 'السجل والتاريخ'), onPressed: () => _showStudentHistory(student)),
+IconButton(
+  icon: const Icon(Icons.history, color: Colors.indigo),
+  tooltip: 'السجل والتاريخ', // ✅ صحيح: tooltip تابع لـ IconButton مباشرة
+  onPressed: () => _showStudentHistory(student),
+)
                                     ],
                                   ),
                                 ],
