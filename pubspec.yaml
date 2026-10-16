@@ -16,8 +16,10 @@ dependencies:
   pdf: any
   printing: any
   excel: any
+  local_auth: any
+  image_picker: any
+  fl_chart: any
   path_provider: any
-  permission_handler: any
 
 dev_dependencies:
   flutter_test:
