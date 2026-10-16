@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: سحب كود المشروع
+      - name: سحب الكود
         uses: actions/checkout@v4
 
       - name: تثبيت الجافا
@@ -26,38 +26,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: تحميل مكتبات المشروع
+      - name: تثبيت الحزم
         run: flutter pub get
 
-      - name: ضبط Gradle وتوليد المفاتيح وبناء الـ APK
-        run: |
-          # 1. ضبط إصدار Gradle إلى 8.7 المستقر
-          sed -i 's/gradle-.*-all.zip/gradle-8.7-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
-          sed -i 's/gradle-.*-bin.zip/gradle-8.7-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+      # بناء APK جاهز ومباشر
+      - name: بناء التطبيق الفوري
+        run: flutter build apk --debug
 
-          # 2. إنشاء مجلد وتوليد المفتاح
-          mkdir -p android/app
-          keytool -genkey -v -keystore android/app/upload-keystore.jks \
-            -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass 123456 -keypass 123456 \
-            -dname "CN=SchoolApp, OU=Dev, O=School, L=Djelfa, S=DZ, C=DZ"
-          
-          # 3. إنشاء ملف key.properties بالمسار المطلق
-          cat <<EOF > android/key.properties
-          storePassword=123456
-          keyPassword=123456
-          keyAlias=upload
-          storeFile=$GITHUB_WORKSPACE/android/app/upload-keystore.jks
-          EOF
-          
-          # 4. نسخ الإعدادات للمجلد الفرعي للاحتياط
-          cp android/key.properties android/app/key.properties
-          
-          # 5. تشغيل أمر البناء
-          flutter build apk --release
-
-      - name: حفظ وتوفير الـ APK للتحميل
+      # 👇 البحث عن أي ملف APK تم إنتاجه ورفعه مباشرة مهما كان مساره
+      - name: توفير الـ APK للتحميل
         uses: actions/upload-artifact@v4
         with:
-          name: school-app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: school-app-debug
+          path: build/app/outputs/**/*.apk
