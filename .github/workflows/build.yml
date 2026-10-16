@@ -23,18 +23,21 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Disable Gradle File Watcher
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.vfs.watch=false" >> ~/.gradle/gradle.properties
+          echo "org.gradle.vfs.watch=false" >> android/gradle.properties
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Setup Signing Configuration
         run: |
-          # إنشاء ملف توقيع اختبار مؤقت للاستخدام على الخادم
-          keytool -genkey -v -keystore android/app/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
-          # إعداد متغيرات البيئة لكي يتعرف عليها Flutter أثناء البناء
-          echo "flutter.signingConfig=android/app/debug.keystore" >> android/local.properties
-          echo "flutter.keyAlias=androiddebugkey" >> android/local.properties
-          echo "flutter.keyPassword=android" >> android/local.properties
-          echo "flutter.storePassword=android" >> android/local.properties
+          # إنشاء مفتاح التوقيع في المسارين معاً لضمان وجوده أينما بحث عنه Gradle
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
+          cp ~/.android/debug.keystore android/app/debug.keystore
 
       - name: Build Release APK
         run: flutter build apk --release
