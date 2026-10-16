@@ -13,9 +13,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fl_chart/fl_chart.dart';
 
-// دالة التاريخ اليومي الديناميكي الموحد
 String todayStr() {
   final n = DateTime.now();
   return '${n.day.toString().padLeft(2, '0')}/${n.month.toString().padLeft(2, '0')}/${n.year}';
@@ -27,9 +25,9 @@ void main() async {
   runApp(const EducationalRegisterApp());
 }
 
-// ============================================================================
-// 1. نماذج البيانات الهندسية الشاملة (MODELS)
-// ============================================================================
+// ==========================================
+// نماذج البيانات (MODELS)
+// ==========================================
 
 class BehaviorLog {
   final String description;
@@ -93,7 +91,7 @@ class LessonNote {
 
 class DailyAttendanceRecord {
   String date;
-  Map<String, String> studentStatuses; // المفتاح هو regNumber لتجنب تشابه الأسماء
+  Map<String, String> studentStatuses;
 
   DailyAttendanceRecord({
     required this.date,
@@ -312,9 +310,9 @@ class Institution {
       );
 }
 
-// ============================================================================
-// 2. إدارة البيانات والتخزين المحلي المتقدم (STORAGE & DATA)
-// ============================================================================
+// ==========================================
+// تخزين البيانات
+// ==========================================
 
 class SchoolData {
   static List<Institution> institutions = [];
@@ -392,7 +390,6 @@ class SchoolData {
   }
 }
 
-// دالة مساعدة لتنظيف وترتيب الحروف العربية أبجدياً (مع تجاهل همزات الألف والتشكيل)
 int compareArabicNames(String a, String b) {
   String normalize(String str) {
     return str
@@ -404,7 +401,6 @@ int compareArabicNames(String a, String b) {
   return normalize(a).compareTo(normalize(b));
 }
 
-// دالة مساعدة آمنة لتحويل النصوص (التي تحوي فاصلة أو نقطة) إلى أرقام عشرية مع التحقق من المدى (0 إلى 20)
 double? parseGrade(String val) {
   String cleaned = val.trim().replaceAll(',', '.');
   double? parsed = double.tryParse(cleaned);
@@ -414,9 +410,9 @@ double? parseGrade(String val) {
   return null;
 }
 
-// ============================================================================
-// 3. جذر التطبيق وإعدادات التعريب والثيمات (MAIN APP)
-// ============================================================================
+// ==========================================
+// واجهات التطبيق
+// ==========================================
 
 class EducationalRegisterApp extends StatefulWidget {
   const EducationalRegisterApp({super.key});
@@ -485,10 +481,6 @@ class _EducationalRegisterAppState extends State<EducationalRegisterApp> {
     );
   }
 }
-
-// ============================================================================
-// 4. شاشة الحماية وقفل التطبيق الأمني (PIN & BIOMETRIC AUTHENTICATION)
-// ============================================================================
 
 class PinLockScreen extends StatefulWidget {
   final VoidCallback onUnlock;
@@ -620,10 +612,6 @@ class _PinLockScreenState extends State<PinLockScreen> {
     );
   }
 }
-
-// ============================================================================
-// 5. شاشة إدارة المؤسسات التربوية (INSTITUTIONS SCREEN)
-// ============================================================================
 
 class InstitutionsListScreen extends StatefulWidget {
   const InstitutionsListScreen(
@@ -795,10 +783,6 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
     );
   }
 }
-
-// ============================================================================
-// 6. شاشة إدارة الأساتذة (TEACHERS SCREEN)
-// ============================================================================
 
 class TeachersListScreen extends StatefulWidget {
   final Institution institution;
@@ -980,10 +964,6 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
     );
   }
 }
-
-// ============================================================================
-// 7. شاشة الأقسام والجدول وتصدير PDF و Excel (CLASSES & REPORTS SCREEN)
-// ============================================================================
 
 class ClassesScreen extends StatefulWidget {
   final Institution institution;
@@ -1389,10 +1369,6 @@ class _ClassesScreenState extends State<ClassesScreen> {
   }
 }
 
-// ============================================================================
-// 8. لوحة تحكم القسم والتلاميذ ودفتر النصوص واستيراد Excel (CLASS DASHBOARD)
-// ============================================================================
-
 class ClassDashboardScreen extends StatefulWidget {
   final SchoolClass schoolClass;
   const ClassDashboardScreen({super.key, required this.schoolClass});
@@ -1475,7 +1451,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
 
         for (var table in excel.tables.keys) {
           var rows = excel.tables[table]!.rows;
-          // تخطي صف العناوين إن وجد وبدء القراءة
           for (int i = 1; i < rows.length; i++) {
             var row = rows[i];
             if (row.isNotEmpty && row[0] != null) {
@@ -1566,10 +1541,13 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
       student.status = newStatus;
       String currentToday = todayStr();
 
-      // البحث عن سجل اليوم أو إنشاؤه
-      DailyAttendanceRecord? record = widget.schoolClass.dailyRecords
-          .where((d) => d.date == currentToday)
-          .firstOrNull;
+      DailyAttendanceRecord? record;
+      for (var d in widget.schoolClass.dailyRecords) {
+        if (d.date == currentToday) {
+          record = d;
+          break;
+        }
+      }
 
       if (record == null) {
         record = DailyAttendanceRecord(date: currentToday, studentStatuses: {});
@@ -1582,7 +1560,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    // الترتيب الأبجدي الدقيق للتلاميذ بالاعتماد على معالجة الحروف العربية
     widget.schoolClass.students.sort((a, b) => compareArabicNames(a.lastName, b.lastName));
 
     return Scaffold(
@@ -1603,7 +1580,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // 1. قائمة التلاميذ
           widget.schoolClass.students.isEmpty
               ? const Center(child: Text('لا توجد تلاميذ في هذا القسم.'))
               : ListView.builder(
@@ -1665,8 +1641,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                     );
                   },
                 ),
-
-          // 2. دفتر النصوص والحصص
           Column(
             children: [
               Padding(
@@ -1679,7 +1653,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
               ),
               Expanded(
                 child: widget.schoolClass.lessonNotes.isEmpty
-                    .isEmpty
                     ? const Center(child: Text('لا توجد مذكرات دروس مسجلة بعد.'))
                     : ListView.builder(
                         itemCount: widget.schoolClass.lessonNotes.length,
@@ -1717,8 +1690,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
               ),
             ],
           ),
-
-          // 3. سجل الحضور اليومي
           widget.schoolClass.dailyRecords.isEmpty
               ? const Center(child: Text('لا توجد سجلات حضور مسجلة بعد.'))
               : ListView.builder(
@@ -1740,8 +1711,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                     );
                   },
                 ),
-
-          // 4. إحصائيات القسم
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -1761,8 +1730,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
               ),
             ),
           ),
-
-          // 5. استيراد Excel
           Center(
             child: Padding(
               padding: const EdgeInsets.all(32.0),
@@ -1851,7 +1818,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                     const SnackBar(content: Text('تم تحديث العلامات بنجاح!')));
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('خطأ: تأكد من إدخال أرقام صحيحة بين 0 و 20 (تُقبل الفاصلة والنقطة).')));
+                    const SnackBar(content: Text('خطأ: تأكد من إدخال أرقام صحيحة بين 0 و 20.')));
               }
             },
             child: const Text('حفظ'),
