@@ -1187,7 +1187,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
         title: const Text('إضافة حصة دراسية'),
         content: SingleChildScrollView(
           child: Column(
-            mainAxisSize: BoxConstraints.tightForFinite,
+            mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: dayCtrl, decoration: const InputDecoration(labelText: 'اليوم (مثال: الأحد)')),
               TextField(controller: timeCtrl, decoration: const InputDecoration(labelText: 'التوقيت (مثال: 08:00 - 10:00)')),
