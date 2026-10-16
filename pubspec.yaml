@@ -20,7 +20,7 @@ dependencies:
   local_auth: any
   image_picker: any
   shared_preferences: any
-  fl_chart: ^0.68.0
+  fl_chart: any
 
 dev_dependencies:
   flutter_test:
