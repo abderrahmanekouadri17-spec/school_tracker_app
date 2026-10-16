@@ -593,14 +593,14 @@ class _PinLockScreenState extends State<PinLockScreen> {
       if (canCheck) {
         bool authenticated = await _auth.authenticate(
           localizedReason: 'المصادقة لفتح السجل التربوي 2026',
-          bool authenticated = await _auth.authenticate(
-  localizedReason: 'يرجى المصادقة لفتح السجل التربوي الشامل 2026',
         );
         if (authenticated) {
           widget.onUnlock();
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("Biometric error: $e");
+    }
   }
 
   void _verifyPin() {
