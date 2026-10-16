@@ -29,18 +29,20 @@ jobs:
       - name: تحميل مكتبات المشروع
         run: flutter pub get
 
-      # 👇 تم دمج توليد المفاتيح والبناء معاً في خطوة واحدة لضمان التنفيذ الإجباري
-      - name: توليد المفاتيح وبناء الـ APK
+      - name: ضبط Gradle وتوليد المفاتيح وبناء الـ APK
         run: |
+          # 1. ضبط إصدار Gradle إلى 8.7 المستقر
+          sed -i 's/gradle-.*-all.zip/gradle-8.7-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's/gradle-.*-bin.zip/gradle-8.7-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+
+          # 2. إنشاء مجلد وتوليد المفتاح
           mkdir -p android/app
-          
-          # 1. توليد المفتاح
           keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass 123456 -keypass 123456 \
             -dname "CN=SchoolApp, OU=Dev, O=School, L=Djelfa, S=DZ, C=DZ"
           
-          # 2. إنشاء ملف key.properties بالمسار المطلق
+          # 3. إنشاء ملف key.properties بالمسار المطلق
           cat <<EOF > android/key.properties
           storePassword=123456
           keyPassword=123456
@@ -48,10 +50,10 @@ jobs:
           storeFile=$GITHUB_WORKSPACE/android/app/upload-keystore.jks
           EOF
           
-          # 3. نسخ الإعدادات للمجلد الفرعي للاحتياط
+          # 4. نسخ الإعدادات للمجلد الفرعي للاحتياط
           cp android/key.properties android/app/key.properties
           
-          # 4. تشغيل أمر البناء فوراً بعد توليد الملفات
+          # 5. تشغيل أمر البناء
           flutter build apk --release
 
       - name: حفظ وتوفير الـ APK للتحميل
