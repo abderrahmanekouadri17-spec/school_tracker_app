@@ -16,7 +16,7 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.12.0
   excel: any
-  file_picker: ^6.1.1
+  file_picker: ^8.1.7
   local_auth: ^2.2.0
   image_picker: any
   shared_preferences: any
