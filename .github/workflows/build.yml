@@ -1,49 +1,54 @@
-name: Build Android APK
+name: Build Flutter APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
+  workflow_dispatch: # يتيح لك بدء البناء يدويًا بنقرة زر
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: سحب كود المشروع
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
+      - name: تثبيت الجافا
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: Set up Flutter
+      - name: تثبيت الفلاتر
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: Disable Gradle File Watcher
-        run: |
-          mkdir -p ~/.gradle
-          echo "org.gradle.vfs.watch=false" >> ~/.gradle/gradle.properties
-          echo "org.gradle.vfs.watch=false" >> android/gradle.properties
-
-      - name: Install dependencies
+      - name: تحميل مكتبات المشروع
         run: flutter pub get
 
-      - name: Setup Signing Configuration
+      # 👇 هذه الخطوة السحرية التي ستحل المشكلة وتنشئ المفتاح المفقود تلقائياً
+      - name: إنشاء مفتاح التوقيع المفقود تلقائياً
         run: |
-          # إنشاء مفتاح التوقيع في المسارين معاً لضمان وجوده أينما بحث عنه Gradle
-          mkdir -p ~/.android
-          keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
-          cp ~/.android/debug.keystore android/app/debug.keystore
+          keytool -genkey -v -keystore android/app/upload-keystore.jks \
+            -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass 123456 -keypass 123456 \
+            -dname "CN=SchoolApp, OU=Dev, O=School, L=Djelfa, S=DZ, C=DZ"
+          
+          cat <<EOF > android/key.properties
+          storePassword=123456
+          keyPassword=123456
+          keyAlias=upload
+          storeFile=upload-keystore.jks
+          EOF
 
-      - name: Build Release APK
+      - name: بناء ملف الـ APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      - name: حفظ وتوفير الـ APK للتحميل
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: school-app-release
           path: build/app/outputs/flutter-apk/app-release.apk
