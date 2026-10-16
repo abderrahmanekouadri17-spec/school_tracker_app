@@ -9,7 +9,6 @@ import 'package:pdf/pdf.dart' as pw;
 import 'package:pdf/widgets.dart' as pwWidgets;
 import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as excelPkg;
-import 'package:file_picker/file_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1188,7 +1187,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
         title: const Text('إضافة حصة دراسية'),
         content: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: BoxConstraints.tightForFinite,
             children: [
               TextField(controller: dayCtrl, decoration: const InputDecoration(labelText: 'اليوم (مثال: الأحد)')),
               TextField(controller: timeCtrl, decoration: const InputDecoration(labelText: 'التوقيت (مثال: 08:00 - 10:00)')),
@@ -1508,78 +1507,156 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
     );
   }
 
+  // مستكشف ملفات الإكسل المدمج والنقي من الهاتف (بدون مكتبة file_picker المعطوبة)
   Future<void> _importStudentsFromExcel() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
-        withData: true,
-      );
+      final List<Directory> searchDirs = [
+        Directory('/storage/emulated/0/Download'),
+        Directory('/storage/emulated/0/Documents'),
+        await getApplicationDocumentsDirectory(),
+      ];
 
-      if (result != null && result.files.isNotEmpty) {
-        Uint8List? bytes = result.files.single.bytes;
-        if (bytes == null && result.files.single.path != null) {
-          bytes = await File(result.files.single.path!).readAsBytes();
+      List<File> excelFiles = [];
+      for (var dir in searchDirs) {
+        if (await dir.exists()) {
+          try {
+            final entities = dir.listSync();
+            for (var entity in entities) {
+              if (entity is File) {
+                final pathLower = entity.path.toLowerCase();
+                if (pathLower.endsWith('.xlsx') || pathLower.endsWith('.xls')) {
+                  excelFiles.add(entity);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: const [
+              Icon(Icons.table_chart, color: Color(0xFF059669)),
+              SizedBox(width: 8),
+              Text('اختر ملف الإكسل (Excel)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 320,
+            child: excelFiles.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.folder_open, size: 54, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text(
+                            'لم يتم العثور على ملفات .xlsx في مجلد Downloads.\nيرجى وضع ملف القائمة في مجلد التنزيلات بهاتفك ثم إعادة المحاولة.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: excelFiles.length,
+                    itemBuilder: (ctx, i) {
+                      final f = excelFiles[i];
+                      final fileName = f.path.split('/').last;
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading: const Icon(Icons.description, color: Color(0xFF059669)),
+                          title: Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          subtitle: Text(f.path, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            Uint8List bytes = await f.readAsBytes();
+                            _processExcelBytes(bytes);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ أثناء قراءة الملفات: $e')));
+      }
+    }
+  }
+
+  void _processExcelBytes(Uint8List bytes) async {
+    try {
+      var excel = excelPkg.Excel.decodeBytes(bytes);
+      int addedCount = 0;
+
+      for (var table in excel.tables.keys) {
+        var rows = excel.tables[table]!.rows;
+        if (rows.isEmpty) continue;
+
+        int startIndex = 0;
+        if (rows.isNotEmpty) {
+          String firstCell = extractCellString(rows[0][0]);
+          if (firstCell.contains('اللقب') || firstCell.contains('Nom') || firstCell.contains('الرقم')) {
+            startIndex = 1;
+          }
         }
 
-        if (bytes != null) {
-          var excel = excelPkg.Excel.decodeBytes(bytes);
-          int addedCount = 0;
+        for (int i = startIndex; i < rows.length; i++) {
+          var row = rows[i];
+          if (row.isEmpty) continue;
 
-          for (var table in excel.tables.keys) {
-            var rows = excel.tables[table]!.rows;
-            if (rows.isEmpty) continue;
+          String col0 = row.isNotEmpty ? extractCellString(row[0]) : '';
+          String col1 = row.length > 1 ? extractCellString(row[1]) : '';
+          String col2 = row.length > 2 ? extractCellString(row[2]) : '';
+          String col3 = row.length > 3 ? extractCellString(row[3]) : '01/01/2007';
 
-            int startIndex = 0;
-            if (rows.isNotEmpty) {
-              String firstCell = extractCellString(rows[0][0]);
-              if (firstCell.contains('اللقب') || firstCell.contains('Nom') || firstCell.contains('الرقم')) {
-                startIndex = 1;
-              }
-            }
+          String lastName = col0;
+          String firstName = col1;
+          String regNum = col2;
 
-            for (int i = startIndex; i < rows.length; i++) {
-              var row = rows[i];
-              if (row.isEmpty) continue;
-
-              String col0 = row.isNotEmpty ? extractCellString(row[0]) : '';
-              String col1 = row.length > 1 ? extractCellString(row[1]) : '';
-              String col2 = row.length > 2 ? extractCellString(row[2]) : '';
-              String col3 = row.length > 3 ? extractCellString(row[3]) : '01/01/2007';
-
-              String lastName = col0;
-              String firstName = col1;
-              String regNum = col2;
-
-              if (int.tryParse(col0) != null && row.length >= 4) {
-                regNum = col1;
-                lastName = col2;
-                firstName = col3;
-              }
-
-              if (lastName.isNotEmpty || firstName.isNotEmpty) {
-                widget.schoolClass.students.add(Student(
-                  lastName: lastName,
-                  firstName: firstName,
-                  regNumber: regNum.isEmpty ? '2026${widget.schoolClass.students.length + addedCount + 1}' : regNum,
-                  birthDate: col3.isEmpty ? '01/01/2007' : col3,
-                  birthPlace: 'الجلفة',
-                ));
-                addedCount++;
-              }
-            }
+          if (int.tryParse(col0) != null && row.length >= 4) {
+            regNum = col1;
+            lastName = col2;
+            firstName = col3;
           }
 
-          await SchoolData.saveData();
-          setState(() {});
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم استيراد $addedCount تلميذاً بنجاح من الهاتف!')));
+          if (lastName.isNotEmpty || firstName.isNotEmpty) {
+            widget.schoolClass.students.add(Student(
+              lastName: lastName,
+              firstName: firstName,
+              regNumber: regNum.isEmpty ? '2026${widget.schoolClass.students.length + addedCount + 1}' : regNum,
+              birthDate: col3.isEmpty ? '01/01/2007' : col3,
+              birthPlace: 'الجلفة',
+            ));
+            addedCount++;
           }
         }
       }
+
+      await SchoolData.saveData();
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم استيراد $addedCount تلميذاً بنجاح من الهاتف!')));
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ أثناء الاستيراد: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ أثناء قراءة ملف الإكسل: $e')));
       }
     }
   }
