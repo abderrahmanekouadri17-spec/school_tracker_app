@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.school_tracker_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -15,8 +15,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.school_tracker_app"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 23
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
