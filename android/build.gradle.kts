@@ -26,9 +26,7 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 subprojects {
-    afterEvaluate {
-        tasks.matching { it.name.contains("LocalLintAar") }.configureEach {
-            enabled = false
-        }
+    tasks.matching { it.name.contains("LocalLintAar") }.configureEach {
+        enabled = false
     }
 }
