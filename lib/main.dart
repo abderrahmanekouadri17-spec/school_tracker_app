@@ -302,7 +302,7 @@ class Teacher {
   factory Teacher.fromJson(Map<String, dynamic> json) => Teacher(
         name: json['name'] ?? '',
         subject: json['subject'] ?? '',
-        imagePath: imagePath,
+        imagePath: null,
         classes: json['classes'] != null
             ? (json['classes'] as List).map((c) => SchoolClass.fromJson(c)).toList()
             : [],
@@ -593,7 +593,8 @@ class _PinLockScreenState extends State<PinLockScreen> {
       if (canCheck) {
         bool authenticated = await _auth.authenticate(
           localizedReason: 'المصادقة لفتح السجل التربوي 2026',
-          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: false),
+          bool authenticated = await _auth.authenticate(
+  localizedReason: 'يرجى المصادقة لفتح السجل التربوي الشامل 2026',
         );
         if (authenticated) {
           widget.onUnlock();
