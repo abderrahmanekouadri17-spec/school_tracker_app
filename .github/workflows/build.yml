@@ -29,32 +29,30 @@ jobs:
       - name: تحميل مكتبات المشروع
         run: flutter pub get
 
-      # 👇 خطوتك الذكية والمحسنة لضمان ثبات المسار الكامل
-      - name: إعداد المفاتيح الشامل
+      # 👇 تم دمج توليد المفاتيح والبناء معاً في خطوة واحدة لضمان التنفيذ الإجباري
+      - name: توليد المفاتيح وبناء الـ APK
         run: |
           mkdir -p android/app
-
+          
           # 1. توليد المفتاح
           keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass 123456 -keypass 123456 \
             -dname "CN=SchoolApp, OU=Dev, O=School, L=Djelfa, S=DZ, C=DZ"
-
-          # 2. نسخ المفتاح في المجلد الأب أيضاً للامان
-          cp android/app/upload-keystore.jks android/upload-keystore.jks
-
-          # 3. كتابة key.properties في كلا المجلدين (android و android/app) باستخدام المسار المطلق
+          
+          # 2. إنشاء ملف key.properties بالمسار المطلق
           cat <<EOF > android/key.properties
           storePassword=123456
           keyPassword=123456
           keyAlias=upload
           storeFile=$GITHUB_WORKSPACE/android/app/upload-keystore.jks
           EOF
-
+          
+          # 3. نسخ الإعدادات للمجلد الفرعي للاحتياط
           cp android/key.properties android/app/key.properties
-
-      - name: بناء ملف الـ APK
-        run: flutter build apk --release
+          
+          # 4. تشغيل أمر البناء فوراً بعد توليد الملفات
+          flutter build apk --release
 
       - name: حفظ وتوفير الـ APK للتحميل
         uses: actions/upload-artifact@v4
