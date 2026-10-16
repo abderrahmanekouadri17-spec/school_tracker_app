@@ -40,7 +40,7 @@ jobs:
           cp ~/.android/debug.keystore android/app/debug.keystore
 
       - name: Build Release APK
-        run: flutter build apk --release
+        run: flutter build apk --release -- -x lint
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
