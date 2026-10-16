@@ -29,8 +29,8 @@ jobs:
       - name: تثبيت الحزم
         run: flutter pub get
 
-      # 👇 خطوتك الذكية لفرض إصدار مستقر ومسح النسخة المسببة للمشاكل
-      - name: فرض إصدار Gradle 8.7 المستقر
+      # 👇 توحيد التوافقية وإلغاء التوقيع المسبب للمشاكل في خطوة واحدة
+      - name: توحيد توافقية أندرويد و Gradle واصلاح التوقيع
         run: |
           mkdir -p android/gradle/wrapper
           cat <<EOF > android/gradle/wrapper/gradle-wrapper.properties
@@ -41,18 +41,22 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
 
-      # 👇 هذه الخطوة ستقوم بإجبار أندرويد على استخدام توقيع الـ Debug لتخطي الملف المفقود
-      - name: تنظيف إعدادات التوقيع الإجبارية
-        run: |
+          if [ -f android/settings.gradle ]; then
+            sed -i -E 's/id "com.android.application" version "[^"]+"/id "com.android.application" version "8.7.0"/g' android/settings.gradle
+            sed -i -E "s/id 'com.android.application' version '[^']+'/id 'com.android.application' version '8.7.0'/g" android/settings.gradle
+          fi
+
+          if [ -f android/build.gradle ]; then
+            sed -i -E 's/com.android.tools.build:gradle:[0-9.]+/com.android.tools.build:gradle:8.7.0/g' android/build.gradle
+          fi
+
           if [ -f android/app/build.gradle ]; then
             sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' android/app/build.gradle
           fi
 
-      # بناء ملف الـ APK
       - name: بناء التطبيق
         run: flutter build apk --debug
 
-      # توفير الـ APK للتحميل
       - name: توفير الـ APK للتحميل
         uses: actions/upload-artifact@v4
         with:
