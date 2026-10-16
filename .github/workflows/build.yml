@@ -3,7 +3,7 @@ name: Build Flutter APK
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch: # يتيح لك بدء البناء يدويًا بنقرة زر
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -29,14 +29,22 @@ jobs:
       - name: تحميل مكتبات المشروع
         run: flutter pub get
 
-      # 👇 هذه الخطوة السحرية التي ستحل المشكلة وتنشئ المفتاح المفقود تلقائياً
-      - name: إنشاء مفتاح التوقيع المفقود تلقائياً
+      # 👇 إنشاء المفتاح في المجلدين معاً لضمان وجوده في جميع الاحتمالات
+      - name: إنشاء مفتاح التوقيع وملف الإعدادات المضمون
         run: |
+          # 1. إنشاء مجلد app في حال لم يكن موجوداً
+          mkdir -p android/app
+
+          # 2. توليد المفتاح
           keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass 123456 -keypass 123456 \
             -dname "CN=SchoolApp, OU=Dev, O=School, L=Djelfa, S=DZ, C=DZ"
-          
+
+          # 3. نسخ المفتاح أيضاً إلى مجلد android الرئيسي (أمان مضاعف)
+          cp android/app/upload-keystore.jks android/upload-keystore.jks
+
+          # 4. إنشاء ملف key.properties
           cat <<EOF > android/key.properties
           storePassword=123456
           keyPassword=123456
