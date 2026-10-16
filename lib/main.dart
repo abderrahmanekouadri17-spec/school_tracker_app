@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+// دالة موحدة لتوليد تاريخ اليوم بالصيغة الجزائرية DD/MM/YYYY
 String todayStr() {
   final now = DateTime.now();
   final d = now.day.toString().padLeft(2, '0');
@@ -29,7 +30,7 @@ void main() async {
 }
 
 // ============================================================================
-// 1. نماذج البيانات (MODELS)
+// 1. نماذج البيانات الهندسية الشاملة (MODELS)
 // ============================================================================
 
 class BehaviorLog {
@@ -173,11 +174,13 @@ class Student {
     List<BehaviorLog>? logs,
   }) : logs = logs ?? [];
 
+  /// حساب معدل المادة وفق المنظومة التربوية الرسمية
   double get average {
     double averageContinuousAndExams = (continuousEval + exam1 + exam2) / 3.0;
     return (averageContinuousAndExams + (test * 2.0)) / 3.0;
   }
 
+  /// التقدير البيداغوجي
   String get appreciation {
     final avg = average;
     if (avg >= 18.0) return 'ممتاز';
@@ -189,6 +192,7 @@ class Student {
     return 'ضعيف';
   }
 
+  /// قرار مجلس الأقسام الشرفي
   String get councilDecision {
     final avg = average;
     if (avg >= 16.0) return 'تهنئة + لوحة شرف';
@@ -330,7 +334,7 @@ class Institution {
 }
 
 // ============================================================================
-// 2. إدارة التخزين (STORAGE)
+// 2. إدارة التخزين وقراءة البيانات (STORAGE & HELPERS)
 // ============================================================================
 
 class SchoolData {
@@ -368,6 +372,10 @@ class SchoolData {
           Teacher(
             name: 'الأستاذ: عبد الرحمن',
             subject: 'الرياضيات',
+            timetable: [
+              TimetableItem(
+                  day: 'الأحد', timeSlot: '08:00 - 10:00', className: '3 ثانوي رياضيات 1', room: 'قاعة 04'),
+            ],
             classes: [
               SchoolClass(name: '3 ثانوي رياضيات 1', students: [
                 Student(
@@ -390,12 +398,46 @@ class SchoolData {
                     exam1: 17.5,
                     exam2: 19.0,
                     test: 18.5),
+                Student(
+                    firstName: 'يوسف',
+                    lastName: 'براهيمي',
+                    regNumber: '2026103',
+                    birthDate: '10/02/2007',
+                    birthPlace: 'الجلفة',
+                    continuousEval: 12.0,
+                    exam1: 11.5,
+                    exam2: 10.0,
+                    test: 11.0),
+                Student(
+                    firstName: 'سارة',
+                    lastName: 'محدادي',
+                    regNumber: '2026104',
+                    birthDate: '03/11/2007',
+                    birthPlace: 'الجلفة',
+                    continuousEval: 09.0,
+                    exam1: 08.5,
+                    exam2: 07.5,
+                    test: 08.0),
               ])
             ],
           )
         ],
       )
     ];
+  }
+
+  static String exportBackupJson() =>
+      jsonEncode(institutions.map((i) => i.toJson()).toList());
+
+  static Future<bool> importBackupJson(String jsonString) async {
+    try {
+      List<dynamic> decoded = jsonDecode(jsonString);
+      institutions = decoded.map((i) => Institution.fromJson(i)).toList();
+      await saveData();
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }
 
@@ -431,7 +473,7 @@ String extractCellString(dynamic cell) {
 }
 
 // ============================================================================
-// 3. التطبيق والثيم التنفيذي (EXECUTIVE THEME)
+// 3. التطبيق والثيم التنفيذي الفاخر (EXECUTIVE LUXURY THEME)
 // ============================================================================
 
 class EducationalRegisterApp extends StatefulWidget {
@@ -473,7 +515,7 @@ class _EducationalRegisterAppState extends State<EducationalRegisterApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'السجل التربوي التنفيذي 2026',
+      title: 'السجل التربوي التنفيذي Pro 2026',
       locale: const Locale('ar', 'DZ'),
       supportedLocales: const [Locale('ar', 'DZ'), Locale('ar')],
       localizationsDelegates: const [
@@ -522,7 +564,7 @@ class _EducationalRegisterAppState extends State<EducationalRegisterApp> {
 }
 
 // ============================================================================
-// 4. شاشة الحماية (PIN LOCK)
+// 4. شاشة الحماية (PIN LOCK & BIOMETRIC)
 // ============================================================================
 
 class PinLockScreen extends StatefulWidget {
@@ -537,31 +579,39 @@ class _PinLockScreenState extends State<PinLockScreen> {
   final TextEditingController _pinController = TextEditingController();
   final LocalAuthentication _auth = LocalAuthentication();
   String errorMessage = "";
+  int attempts = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometricsAutomatically();
+  }
+
+  Future<void> _checkBiometricsAutomatically() async {
+    try {
+      bool canCheck = await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+      if (canCheck) {
+        bool authenticated = await _auth.authenticate(
+          localizedReason: 'المصادقة لفتح السجل التربوي 2026',
+          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: false),
+        );
+        if (authenticated) {
+          widget.onUnlock();
+        }
+      }
+    } catch (_) {}
+  }
 
   void _verifyPin() {
     if (_pinController.text == SchoolData.appPin) {
       widget.onUnlock();
     } else {
       setState(() {
-        errorMessage = "رمز المرور غير صحيح!";
+        attempts++;
+        errorMessage = "رمز المرور غير صحيح! (المحاولة: $attempts)";
         _pinController.clear();
       });
     }
-  }
-
-  Future<void> _checkBiometrics() async {
-    try {
-      bool canCheck = await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
-      if (canCheck) {
-        bool authSuccess = await _auth.authenticate(
-          localizedReason: 'المصادقة لفتح السجل التربوي 2026',
-          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: false),
-        );
-        if (authSuccess) {
-          widget.onUnlock();
-        }
-      }
-    } catch (_) {}
   }
 
   @override
@@ -570,7 +620,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0B132B), Color(0xFF047857)],
+            colors: [Color(0xFF0B132B), Color(0xFF1C2541), Color(0xFF047857)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -579,30 +629,32 @@ class _PinLockScreenState extends State<PinLockScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Card(
+              elevation: 12,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.shield, size: 54, color: Color(0xFFD97706)),
+                    const Icon(Icons.shield_outlined, size: 54, color: Color(0xFFD97706)),
                     const SizedBox(height: 16),
                     const Text('السجل التربوي التنفيذي Pro',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    const Text('أدخل رمز المرور الافتراضي (1234)',
+                    const Text('أدخل رمز المرور الافتراضي (1234) أو البصمة',
                         style: TextStyle(color: Colors.grey, fontSize: 13)),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     TextField(
                       controller: _pinController,
                       keyboardType: TextInputType.number,
                       obscureText: true,
                       maxLength: 4,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 26, letterSpacing: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 28, letterSpacing: 12, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                         counterText: "",
+                        hintText: "••••",
                       ),
                       onSubmitted: (_) => _verifyPin(),
                     ),
@@ -610,7 +662,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                       const SizedBox(height: 8),
                       Text(errorMessage, style: const TextStyle(color: Colors.red, fontSize: 12)),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -620,13 +672,14 @@ class _PinLockScreenState extends State<PinLockScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                         onPressed: _verifyPin,
-                        child: const Text('دخول'),
+                        child: const Text('دخول النظام', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
+                    const SizedBox(height: 12),
                     TextButton.icon(
-                      onPressed: _checkBiometrics,
+                      onPressed: _checkBiometricsAutomatically,
                       icon: const Icon(Icons.fingerprint, color: Color(0xFF059669)),
-                      label: const Text('المصادقة بالبصمة'),
+                      label: const Text('المصادقة بالبصمة البيومترية', style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -640,7 +693,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
 }
 
 // ============================================================================
-// 5. شاشة المؤسسات (INSTITUTIONS)
+// 5. شاشة المؤسسات (INSTITUTIONS SCREEN)
 // ============================================================================
 
 class InstitutionsListScreen extends StatefulWidget {
@@ -654,23 +707,86 @@ class InstitutionsListScreen extends StatefulWidget {
 }
 
 class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
-  void _showAddInstitutionDialog() {
-    final nameCtrl = TextEditingController();
+  void _showInstitutionDialog({Institution? institution}) {
+    final nameCtrl = TextEditingController(text: institution?.name ?? '');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('إضافة مؤسسة جديدة'),
-        content: TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم المؤسسة')),
+        title: Text(institution == null ? 'إضافة مؤسسة تربوية' : 'تعديل اسم المؤسسة'),
+        content: TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم المؤسسة والولاية')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+            onPressed: () async {
+              if (nameCtrl.text.trim().isNotEmpty) {
+                setState(() {
+                  if (institution == null) {
+                    SchoolData.institutions.add(Institution(name: nameCtrl.text.trim()));
+                  } else {
+                    institution.name = nameCtrl.text.trim();
+                  }
+                });
+                await SchoolData.saveData();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteInstitution(Institution institution) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف المؤسسة'),
+        content: Text('هل أنت متأكد من حذف مؤسسة "${institution.name}"؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              setState(() {
+                SchoolData.institutions.remove(institution);
+              });
+              await SchoolData.saveData();
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changePinDialog() {
+    final pinCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تغيير رمز الحماية (PIN)'),
+        content: TextField(
+          controller: pinCtrl,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'الرمز السري الجديد (4 أرقام)'),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () async {
-              if (nameCtrl.text.trim().isNotEmpty) {
-                setState(() {
-                  SchoolData.institutions.add(Institution(name: nameCtrl.text.trim()));
-                });
+              if (pinCtrl.text.length == 4) {
+                SchoolData.appPin = pinCtrl.text;
                 await SchoolData.saveData();
-                if (mounted) Navigator.pop(context);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم تحديث رمز الحماية بنجاح!')));
+                }
               }
             },
             child: const Text('حفظ'),
@@ -684,52 +800,76 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('المؤسسات التربوية 2026'),
+        title: const Text('المؤسسات التربوية Pro 2026', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          IconButton(
+              icon: const Icon(Icons.lock_reset),
+              tooltip: 'تغيير رمز PIN',
+              onPressed: _changePinDialog),
           IconButton(
               icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
               onPressed: widget.onThemeToggle),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: SchoolData.institutions.length,
-        itemBuilder: (context, index) {
-          final inst = SchoolData.institutions[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              leading: const CircleAvatar(
-                  backgroundColor: Color(0xFF0F172A),
-                  child: Icon(Icons.school, color: Color(0xFFF59E0B))),
-              title: Text(inst.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('الأساتذة: ${inst.teachers.length}'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => TeachersListScreen(
-                            institution: inst,
-                            onThemeToggle: widget.onThemeToggle,
-                            isDarkMode: widget.isDarkMode))).then((_) => setState(() {}));
+      body: SchoolData.institutions.isEmpty
+          ? const Center(child: Text('لا توجد مؤسسات تعليمية مسجلة بعد.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: SchoolData.institutions.length,
+              itemBuilder: (context, index) {
+                final inst = SchoolData.institutions[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.account_balance, color: Color(0xFFF59E0B)),
+                    ),
+                    title: Text(inst.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                    subtitle: Text('عدد الأساتذة: ${inst.teachers.length}', style: const TextStyle(color: Colors.grey)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                            onPressed: () => _showInstitutionDialog(institution: inst)),
+                        IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.redAccent),
+                            onPressed: () => _deleteInstitution(inst)),
+                        const Icon(Icons.arrow_forward_ios, size: 16),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => TeachersListScreen(
+                                  institution: inst,
+                                  onThemeToggle: widget.onThemeToggle,
+                                  isDarkMode: widget.isDarkMode))).then((_) => setState(() {}));
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: const Color(0xFFF59E0B),
-        onPressed: _showAddInstitutionDialog,
-        child: const Icon(Icons.add),
+        onPressed: () => _showInstitutionDialog(),
+        icon: const Icon(Icons.add_business),
+        label: const Text('إضافة مؤسسة'),
       ),
     );
   }
 }
 
 // ============================================================================
-// 6. شاشة الأساتذة (TEACHERS)
+// 6. شاشة الأساتذة (TEACHERS SCREEN)
 // ============================================================================
 
 class TeachersListScreen extends StatefulWidget {
@@ -747,42 +887,165 @@ class TeachersListScreen extends StatefulWidget {
 }
 
 class _TeachersListScreenState extends State<TeachersListScreen> {
+  void _showTeacherDialog({Teacher? teacher}) {
+    final nameCtrl = TextEditingController(text: teacher?.name ?? '');
+    final subjectCtrl = TextEditingController(text: teacher?.subject ?? '');
+    String? tempImagePath = teacher?.imagePath;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(teacher == null ? 'إضافة أستاذ جديد' : 'تعديل بيانات الأستاذ'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    try {
+                      final picker = ImagePicker();
+                      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                      if (pickedFile != null) {
+                        setDialogState(() {
+                          tempImagePath = pickedFile.path;
+                        });
+                      }
+                    } catch (_) {}
+                  },
+                  child: CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage:
+                        tempImagePath != null ? FileImage(File(tempImagePath!)) : null,
+                    child: tempImagePath == null
+                        ? const Icon(Icons.camera_alt, size: 28, color: Colors.grey)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم الأستاذ')),
+                const SizedBox(height: 10),
+                TextField(controller: subjectCtrl, decoration: const InputDecoration(labelText: 'المادة التعليمية')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+              onPressed: () async {
+                if (nameCtrl.text.trim().isNotEmpty && subjectCtrl.text.trim().isNotEmpty) {
+                  setState(() {
+                    if (teacher == null) {
+                      widget.institution.teachers.add(Teacher(
+                          name: nameCtrl.text.trim(),
+                          subject: subjectCtrl.text.trim(),
+                          imagePath: tempImagePath));
+                    } else {
+                      teacher.name = nameCtrl.text.trim();
+                      teacher.subject = subjectCtrl.text.trim();
+                      teacher.imagePath = tempImagePath;
+                    }
+                  });
+                  await SchoolData.saveData();
+                  if (mounted) Navigator.pop(context);
+                }
+              },
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _deleteTeacher(Teacher teacher) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الأستاذ'),
+        content: Text('هل أنت متأكد من حذف الأستاذ "${teacher.name}"؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              setState(() {
+                widget.institution.teachers.remove(teacher);
+              });
+              await SchoolData.saveData();
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.institution.name)),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: widget.institution.teachers.length,
-        itemBuilder: (context, index) {
-          final teacher = widget.institution.teachers[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFF059669),
-                child: Icon(Icons.person, color: Colors.white),
-              ),
-              title: Text(teacher.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('المادة: ${teacher.subject} | الأفواج: ${teacher.classes.length}'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => ClassesScreen(
-                            institution: widget.institution, teacher: teacher))).then((_) => setState(() {}));
+      body: widget.institution.teachers.isEmpty
+          ? const Center(child: Text('لا يوجد أساتذة مسجلون في هذه المؤسسة.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: widget.institution.teachers.length,
+              itemBuilder: (context, index) {
+                final teacher = widget.institution.teachers[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFF059669),
+                      backgroundImage: teacher.imagePath != null
+                          ? FileImage(File(teacher.imagePath!))
+                          : null,
+                      child: teacher.imagePath == null
+                          ? const Icon(Icons.person, color: Colors.white)
+                          : null,
+                    ),
+                    title: Text(teacher.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                    subtitle: Text('المادة: ${teacher.subject} | عدد الأفواج: ${teacher.classes.length}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                            onPressed: () => _showTeacherDialog(teacher: teacher)),
+                        IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.redAccent),
+                            onPressed: () => _deleteTeacher(teacher)),
+                        const Icon(Icons.arrow_forward_ios, size: 16),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => ClassesScreen(
+                                  institution: widget.institution, teacher: teacher))).then((_) => setState(() {}));
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF059669),
+        foregroundColor: Colors.white,
+        onPressed: () => _showTeacherDialog(),
+        icon: const Icon(Icons.person_add),
+        label: const Text('إضافة أستاذ'),
       ),
     );
   }
 }
 
 // ============================================================================
-// 7. شاشة الأقسام وتصدير كشف رقمنة Excel (CLASSES)
+// 7. شاشة الأقسام والجدول الأسبوعي والنسخ الاحتياطي (CLASSES SCREEN)
 // ============================================================================
 
 class ClassesScreen extends StatefulWidget {
@@ -795,26 +1058,246 @@ class ClassesScreen extends StatefulWidget {
 }
 
 class _ClassesScreenState extends State<ClassesScreen> {
-  Future<void> _exportExcel() async {
+  void _showClassDialog({SchoolClass? schoolClass}) {
+    final classCtrl = TextEditingController(text: schoolClass?.name ?? '');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(schoolClass == null ? 'إضافة فوج تربوي جديد' : 'تعديل اسم الفوج'),
+        content: TextField(
+            controller: classCtrl,
+            decoration: const InputDecoration(hintText: 'مثال: 3 ثانوي علوم تجريبية 1')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+            onPressed: () async {
+              if (classCtrl.text.trim().isNotEmpty) {
+                setState(() {
+                  if (schoolClass == null) {
+                    widget.teacher.classes.add(SchoolClass(name: classCtrl.text.trim(), students: []));
+                  } else {
+                    schoolClass.name = classCtrl.text.trim();
+                  }
+                });
+                await SchoolData.saveData();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteClass(SchoolClass schoolClass) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الفوج'),
+        content: Text('هل أنت متأكد من حذف فوج "${schoolClass.name}"؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              setState(() {
+                widget.teacher.classes.remove(schoolClass);
+              });
+              await SchoolData.saveData();
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTimetableDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('جدول الحصص والتوقيت الأسبوعي'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 350,
+            child: Column(
+              children: [
+                Expanded(
+                  child: widget.teacher.timetable.isEmpty
+                      ? const Center(child: Text('لا توجد حصص مضافة بعد في الجدول.'))
+                      : ListView.builder(
+                          itemCount: widget.teacher.timetable.length,
+                          itemBuilder: (context, index) {
+                            final item = widget.teacher.timetable[index];
+                            return Card(
+                              child: ListTile(
+                                title: Text('${item.day} | ${item.timeSlot}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('القسم: ${item.className} | القاعة: ${item.room}'),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                  onPressed: () async {
+                                    setState(() {
+                                      widget.teacher.timetable.removeAt(index);
+                                    });
+                                    setDialogState(() {});
+                                    await SchoolData.saveData();
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white),
+                  icon: const Icon(Icons.add),
+                  label: const Text('إضافة حصة دراسية جديدة'),
+                  onPressed: () {
+                    _showAddTimetableItemDialog(onAdded: () {
+                      setDialogState(() {});
+                      setState(() {});
+                    });
+                  },
+                )
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddTimetableItemDialog({required VoidCallback onAdded}) {
+    final dayCtrl = TextEditingController(text: 'الأحد');
+    final timeCtrl = TextEditingController(text: '08:00 - 10:00');
+    final classCtrl = TextEditingController();
+    final roomCtrl = TextEditingController(text: 'قاعة 01');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إضافة حصة دراسية'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: dayCtrl, decoration: const InputDecoration(labelText: 'اليوم (مثال: الأحد)')),
+              TextField(controller: timeCtrl, decoration: const InputDecoration(labelText: 'التوقيت (مثال: 08:00 - 10:00)')),
+              TextField(controller: classCtrl, decoration: const InputDecoration(labelText: 'اسم القسم')),
+              TextField(controller: roomCtrl, decoration: const InputDecoration(labelText: 'رقم القاعة')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () async {
+              if (classCtrl.text.isNotEmpty) {
+                setState(() {
+                  widget.teacher.timetable.add(TimetableItem(
+                    day: dayCtrl.text.trim(),
+                    timeSlot: timeCtrl.text.trim(),
+                    className: classCtrl.text.trim(),
+                    room: roomCtrl.text.trim(),
+                  ));
+                });
+                await SchoolData.saveData();
+                if (mounted) Navigator.pop(context);
+                onAdded();
+              }
+            },
+            child: const Text('إضافة'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBackupRestoreDialog() {
+    final backupCtrl = TextEditingController(text: SchoolData.exportBackupJson());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('النسخ الاحتياطي والاستعادة'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('انسخ هذا الكود كنسخة احتياطية، أو الصق نسخة سابقة للاسترجاع:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: backupCtrl,
+                    maxLines: 6,
+                    decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.copy),
+            label: const Text('نسخ'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: backupCtrl.text));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ البيانات بنجاح!')));
+            },
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white),
+            onPressed: () async {
+              bool success = await SchoolData.importBackupJson(backupCtrl.text);
+              if (success) {
+                setState(() {});
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت استعادة البيانات بنجاح!')));
+                }
+              }
+            },
+            child: const Text('استعادة'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportRaqmanaExcel() async {
     try {
       var excel = excelPkg.Excel.createExcel();
-      excelPkg.Sheet sheet = excel['رقمنة'];
+      excelPkg.Sheet sheet = excel['كشف رقمنة'];
 
       sheet.appendRow([
-        excelPkg.TextCellValue('المؤسسة: ${widget.institution.name}'),
+        excelPkg.TextCellValue('المؤسسة التربوية: ${widget.institution.name}'),
         excelPkg.TextCellValue('الأستاذ: ${widget.teacher.name}'),
         excelPkg.TextCellValue('المادة: ${widget.teacher.subject}'),
-        excelPkg.TextCellValue('التاريخ: ${todayStr()}'),
+        excelPkg.TextCellValue('تاريخ التصدير: ${todayStr()}'),
       ]);
+      sheet.appendRow([]);
 
       for (var c in widget.teacher.classes) {
         sheet.appendRow([excelPkg.TextCellValue('القسم: ${c.name}')]);
         sheet.appendRow([
           excelPkg.TextCellValue('الرقم'),
-          excelPkg.TextCellValue('رقم التعريف'),
+          excelPkg.TextCellValue('رقم التعريف المدرسي'),
           excelPkg.TextCellValue('اللقب'),
           excelPkg.TextCellValue('الاسم'),
-          excelPkg.TextCellValue('المعدل'),
+          excelPkg.TextCellValue('التقويم المستمر'),
+          excelPkg.TextCellValue('الفرض 1'),
+          excelPkg.TextCellValue('الفرض 2'),
+          excelPkg.TextCellValue('الاختبار'),
+          excelPkg.TextCellValue('المعدل الفصلي'),
           excelPkg.TextCellValue('التقدير'),
         ]);
 
@@ -825,20 +1308,25 @@ class _ClassesScreenState extends State<ClassesScreen> {
             excelPkg.TextCellValue(s.regNumber),
             excelPkg.TextCellValue(s.lastName),
             excelPkg.TextCellValue(s.firstName),
+            excelPkg.TextCellValue('${s.continuousEval}'),
+            excelPkg.TextCellValue('${s.exam1}'),
+            excelPkg.TextCellValue('${s.exam2}'),
+            excelPkg.TextCellValue('${s.test}'),
             excelPkg.TextCellValue(s.average.toStringAsFixed(2)),
             excelPkg.TextCellValue(s.appreciation),
           ]);
         }
+        sheet.appendRow([]);
       }
 
       Directory? dir = await getApplicationDocumentsDirectory();
-      String path = '${dir.path}/Raqmana_Report_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+      String path = '${dir.path}/Raqmana_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx';
       final file = File(path);
       file.createSync(recursive: true);
       file.writeAsBytesSync(excel.encode()!);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تصدير ملف Excel بنجاح في:\n$path')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تصدير ملف رقمنة بنجاح في:\n$path')));
       }
     } catch (e) {
       if (mounted) {
@@ -849,46 +1337,99 @@ class _ClassesScreenState extends State<ClassesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    int totalStudents = widget.teacher.classes.fold(0, (sum, c) => sum + c.students.length);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.teacher.name} (${widget.teacher.subject})'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.table_chart, color: Color(0xFFF59E0B)),
-            tooltip: 'تصدير كشف رقمنة Excel',
-            onPressed: _exportExcel,
+          IconButton(icon: const Icon(Icons.calendar_month), tooltip: 'جدول الحصص الأسبوعي', onPressed: _showTimetableDialog),
+          IconButton(icon: const Icon(Icons.table_chart, color: Color(0xFFF59E0B)), tooltip: 'تصدير جدول رقمنة', onPressed: _exportRaqmanaExcel),
+          IconButton(icon: const Icon(Icons.settings_backup_restore), tooltip: 'النسخ الاحتياطي', onPressed: _showBackupRestoreDialog),
+        ],
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(children: [
+                  const Text('إجمالي الأفواج', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text('${widget.teacher.classes.length}', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 24, fontWeight: FontWeight.bold)),
+                ]),
+                Container(height: 36, width: 1, color: Colors.white24),
+                Column(children: [
+                  const Text('إجمالي التلاميذ', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text('$totalStudents', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                ]),
+              ],
+            ),
+          ),
+          Expanded(
+            child: widget.teacher.classes.isEmpty
+                ? const Center(child: Text('لا توجد أقسام مسجلة بعد.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: widget.teacher.classes.length,
+                    itemBuilder: (context, index) {
+                      final schoolClass = widget.teacher.classes[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          leading: const CircleAvatar(backgroundColor: Color(0xFF0F172A), child: Icon(Icons.school, color: Color(0xFFF59E0B))),
+                          title: Text(schoolClass.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                          subtitle: Text('عدد التلاميذ: ${schoolClass.students.length}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(icon: const Icon(Icons.edit, color: Colors.blueGrey), onPressed: () => _showClassDialog(schoolClass: schoolClass)),
+                              IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _deleteClass(schoolClass)),
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => ClassDashboardScreen(
+                                        institution: widget.institution,
+                                        teacher: widget.teacher,
+                                        schoolClass: schoolClass))).then((_) => setState(() {}));
+                          },
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: widget.teacher.classes.length,
-        itemBuilder: (context, index) {
-          final c = widget.teacher.classes[index];
-          return Card(
-            child: ListTile(
-              title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('عدد التلاميذ: ${c.students.length}'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => ClassDashboardScreen(
-                            institution: widget.institution,
-                            teacher: widget.teacher,
-                            schoolClass: c))).then((_) => setState(() {}));
-              },
-            ),
-          );
-        },
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF0F172A),
+        foregroundColor: const Color(0xFFF59E0B),
+        onPressed: () => _showClassDialog(),
+        icon: const Icon(Icons.add),
+        label: const Text('إضافة قسم'),
       ),
     );
   }
 }
 
 // ============================================================================
-// 8. لوحة تحكم القسم (الرسم البياني وكشف النقاط الفردي الرسمي مع كود QR)
+// 8. لوحة تحكم القسم (الرسم البياني، كشف النقاط الفردي الرسمي مع كود QR، رقمنة)
 // ============================================================================
 
 class ClassDashboardScreen extends StatefulWidget {
@@ -910,11 +1451,60 @@ class ClassDashboardScreen extends StatefulWidget {
 class _ClassDashboardScreenState extends State<ClassDashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _studentSearchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
+  }
+
+  void _showAddStudentDialog() {
+    final firstCtrl = TextEditingController();
+    final lastCtrl = TextEditingController();
+    final regCtrl = TextEditingController();
+    final birthDateCtrl = TextEditingController(text: '01/01/2007');
+    final birthPlaceCtrl = TextEditingController(text: 'الجلفة');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إضافة تلميذ جديد'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: lastCtrl, decoration: const InputDecoration(labelText: 'اللقب')),
+              TextField(controller: firstCtrl, decoration: const InputDecoration(labelText: 'الاسم')),
+              TextField(controller: regCtrl, decoration: const InputDecoration(labelText: 'رقم التعريف المدرسي')),
+              TextField(controller: birthDateCtrl, decoration: const InputDecoration(labelText: 'تاريخ الازدياد')),
+              TextField(controller: birthPlaceCtrl, decoration: const InputDecoration(labelText: 'مكان الازدياد')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () async {
+              if (firstCtrl.text.trim().isNotEmpty && lastCtrl.text.trim().isNotEmpty) {
+                setState(() {
+                  widget.schoolClass.students.add(Student(
+                    firstName: firstCtrl.text.trim(),
+                    lastName: lastCtrl.text.trim(),
+                    regNumber: regCtrl.text.trim().isEmpty ? '2026${widget.schoolClass.students.length + 1}' : regCtrl.text.trim(),
+                    birthDate: birthDateCtrl.text.trim(),
+                    birthPlace: birthPlaceCtrl.text.trim(),
+                  ));
+                });
+                await SchoolData.saveData();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('إضافة'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _importStudentsFromExcel() async {
@@ -933,31 +1523,34 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
 
         if (bytes != null) {
           var excel = excelPkg.Excel.decodeBytes(bytes);
-          int added = 0;
+          int addedCount = 0;
 
           for (var table in excel.tables.keys) {
             var rows = excel.tables[table]!.rows;
-            int start = 0;
+            if (rows.isEmpty) continue;
+
+            int startIndex = 0;
             if (rows.isNotEmpty) {
-              String f = extractCellString(rows[0][0]);
-              if (f.contains('اللقب') || f.contains('الرقم') || f.contains('Nom')) {
-                start = 1;
+              String firstCell = extractCellString(rows[0][0]);
+              if (firstCell.contains('اللقب') || firstCell.contains('Nom') || firstCell.contains('الرقم')) {
+                startIndex = 1;
               }
             }
 
-            for (int i = start; i < rows.length; i++) {
-              var r = rows[i];
-              if (r.isEmpty) continue;
-              String col0 = r.isNotEmpty ? extractCellString(r[0]) : '';
-              String col1 = r.length > 1 ? extractCellString(r[1]) : '';
-              String col2 = r.length > 2 ? extractCellString(r[2]) : '';
-              String col3 = r.length > 3 ? extractCellString(r[3]) : '01/01/2007';
+            for (int i = startIndex; i < rows.length; i++) {
+              var row = rows[i];
+              if (row.isEmpty) continue;
+
+              String col0 = row.isNotEmpty ? extractCellString(row[0]) : '';
+              String col1 = row.length > 1 ? extractCellString(row[1]) : '';
+              String col2 = row.length > 2 ? extractCellString(row[2]) : '';
+              String col3 = row.length > 3 ? extractCellString(row[3]) : '01/01/2007';
 
               String lastName = col0;
               String firstName = col1;
               String regNum = col2;
 
-              if (int.tryParse(col0) != null && r.length >= 4) {
+              if (int.tryParse(col0) != null && row.length >= 4) {
                 regNum = col1;
                 lastName = col2;
                 firstName = col3;
@@ -967,18 +1560,19 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                 widget.schoolClass.students.add(Student(
                   lastName: lastName,
                   firstName: firstName,
-                  regNumber: regNum.isEmpty ? '2026${widget.schoolClass.students.length + 1}' : regNum,
-                  birthDate: '01/01/2007',
+                  regNumber: regNum.isEmpty ? '2026${widget.schoolClass.students.length + addedCount + 1}' : regNum,
+                  birthDate: col3.isEmpty ? '01/01/2007' : col3,
                   birthPlace: 'الجلفة',
                 ));
-                added++;
+                addedCount++;
               }
             }
           }
+
           await SchoolData.saveData();
           setState(() {});
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم استيراد $added تلميذاً بنجاح!')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم استيراد $addedCount تلميذاً بنجاح من الهاتف!')));
           }
         }
       }
@@ -989,14 +1583,87 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
     }
   }
 
-  /// توليد كشف نقاط فردي رسمي مطبوع بـ PDF مع رمز QR وختم رقمي
+  void _showAddNoteDialog({LessonNote? note}) {
+    final dateCtrl = TextEditingController(text: note?.date ?? todayStr());
+    final titleCtrl = TextEditingController(text: note?.title ?? '');
+    final summaryCtrl = TextEditingController(text: note?.summary ?? '');
+    final homeworkCtrl = TextEditingController(text: note?.homework ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(note == null ? 'إضافة مذكرة درس جديد' : 'تعديل مذكرة الدرس'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: dateCtrl, decoration: const InputDecoration(labelText: 'التاريخ')),
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'عنوان الدرس والمحور')),
+              TextField(controller: summaryCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'خلاصة الدرس')),
+              TextField(controller: homeworkCtrl, decoration: const InputDecoration(labelText: 'الواجب المنزلي')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleCtrl.text.trim().isNotEmpty) {
+                setState(() {
+                  if (note == null) {
+                    widget.schoolClass.lessonNotes.add(LessonNote(
+                      date: dateCtrl.text.trim(),
+                      title: titleCtrl.text.trim(),
+                      summary: summaryCtrl.text.trim(),
+                      homework: homeworkCtrl.text.trim(),
+                    ));
+                  } else {
+                    note.date = dateCtrl.text.trim();
+                    note.title = titleCtrl.text.trim();
+                    note.summary = summaryCtrl.text.trim();
+                    note.homework = homeworkCtrl.text.trim();
+                  }
+                });
+                await SchoolData.saveData();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateAttendanceForToday(Student student, String newStatus) {
+    setState(() {
+      student.status = newStatus;
+      String currentToday = todayStr();
+
+      DailyAttendanceRecord? record;
+      for (var d in widget.schoolClass.dailyRecords) {
+        if (d.date == currentToday) {
+          record = d;
+          break;
+        }
+      }
+
+      if (record == null) {
+        record = DailyAttendanceRecord(date: currentToday, studentStatuses: {});
+        widget.schoolClass.dailyRecords.add(record);
+      }
+      record.studentStatuses[student.regNumber] = newStatus;
+    });
+    SchoolData.saveData();
+  }
+
   Future<void> _exportStudentBulletinPdf(Student student, int rank) async {
     try {
       final pdf = pwWidgets.Document();
       final arabicFont = await PdfGoogleFonts.cairoRegular();
       final arabicBold = await PdfGoogleFonts.cairoBold();
 
-      final qrText = "المؤسسة: ${widget.institution.name}\nالتلميذ: ${student.lastName} ${student.firstName}\nالمعدل: ${student.average.toStringAsFixed(2)}\nالرتبة: $rank";
+      final verificationData = "المؤسسة: ${widget.institution.name}\nالتلميذ: ${student.lastName} ${student.firstName}\nالمعدل: ${student.average.toStringAsFixed(2)}\nالرتبة: $rank";
 
       pdf.addPage(
         pwWidgets.Page(
@@ -1006,9 +1673,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
           build: (pwWidgets.Context context) {
             return pwWidgets.Container(
               padding: const pwWidgets.EdgeInsets.all(24),
-              decoration: pwWidgets.BoxDecoration(
-                border: pwWidgets.Border.all(color: pw.PdfColors.black, width: 2),
-              ),
+              decoration: pwWidgets.BoxDecoration(border: pwWidgets.Border.all(color: pw.PdfColors.black, width: 2)),
               child: pwWidgets.Column(
                 crossAxisAlignment: pwWidgets.CrossAxisAlignment.stretch,
                 children: [
@@ -1021,7 +1686,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                         style: const pwWidgets.TextStyle(fontSize: 12)),
                   ),
                   pwWidgets.Divider(thickness: 1.5),
-                  pwWidgets.SizedBox(height: 10),
+                  pwWidgets.SizedBox(height: 8),
                   pwWidgets.Row(
                     mainAxisAlignment: pwWidgets.MainAxisAlignment.spaceBetween,
                     children: [
@@ -1029,20 +1694,20 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                       pwWidgets.Text('تاريخ الكشف: ${todayStr()}'),
                     ],
                   ),
-                  pwWidgets.SizedBox(height: 16),
+                  pwWidgets.SizedBox(height: 14),
                   pwWidgets.Container(
                     padding: const pwWidgets.EdgeInsets.all(10),
                     decoration: pwWidgets.BoxDecoration(border: pwWidgets.Border.all(color: pw.PdfColors.grey400)),
                     child: pwWidgets.Row(
                       mainAxisAlignment: pwWidgets.MainAxisAlignment.spaceBetween,
                       children: [
-                        pwWidgets.Text('التلميذ: ${student.lastName} ${student.firstName}', style: pwWidgets.TextStyle(fontWeight: pwWidgets.FontWeight.bold)),
+                        pwWidgets.Text('التلميذ: ${student.lastName} ${student.firstName}', style: pwWidgets.TextStyle(fontWeight: pwWidgets.FontWeight.bold, fontSize: 13)),
                         pwWidgets.Text('رقم التعريف: ${student.regNumber}'),
                         pwWidgets.Text('القسم: ${widget.schoolClass.name}'),
                       ],
                     ),
                   ),
-                  pwWidgets.SizedBox(height: 20),
+                  pwWidgets.SizedBox(height: 16),
                   pwWidgets.Table(
                     border: pwWidgets.TableBorder.all(color: pw.PdfColors.black, width: 1),
                     children: [
@@ -1052,7 +1717,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('المادة'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('التقويم'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('الفرض 1'))),
-                          pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('الاختبار'))),
+                          pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('الفرض 2'))),
+                          pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('الاختبار (×2)'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('المعدل'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(6), child: pwWidgets.Center(child: pwWidgets.Text('الرتبة'))),
                         ],
@@ -1062,6 +1728,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text(widget.teacher.subject))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text('${student.continuousEval}'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text('${student.exam1}'))),
+                          pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text('${student.exam2}'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text('${student.test}'))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text(student.average.toStringAsFixed(2), style: pwWidgets.TextStyle(fontWeight: pwWidgets.FontWeight.bold)))),
                           pwWidgets.Padding(padding: const pwWidgets.EdgeInsets.all(8), child: pwWidgets.Center(child: pwWidgets.Text('$rank / ${widget.schoolClass.students.length}'))),
@@ -1070,14 +1737,14 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                     ],
                   ),
                   pwWidgets.SizedBox(height: 16),
-                  pwWidgets.Text('ملاحظة وقرار مجلس الأقسام: ${student.councilDecision}', style: pwWidgets.TextStyle(fontWeight: pwWidgets.FontWeight.bold)),
+                  pwWidgets.Text('التقدير البيداغوجي: ${student.appreciation}  |  قرار مجلس الأقسام: ${student.councilDecision}', style: pwWidgets.TextStyle(fontWeight: pwWidgets.FontWeight.bold)),
                   pwWidgets.Spacer(),
                   pwWidgets.Row(
                     mainAxisAlignment: pwWidgets.MainAxisAlignment.spaceBetween,
                     children: [
                       pwWidgets.BarcodeWidget(
                         barcode: pwWidgets.Barcode.qrCode(),
-                        data: qrText,
+                        data: verificationData,
                         width: 75,
                         height: 75,
                       ),
@@ -1089,7 +1756,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                           border: pwWidgets.Border.all(color: pw.PdfColors.blue900, width: 2),
                         ),
                         child: pwWidgets.Center(
-                          child: pwWidgets.Text('المطابقة الرسمية\nختم الإدارة', textAlign: pwWidgets.TextAlign.center, style: const pwWidgets.TextStyle(fontSize: 8)),
+                          child: pwWidgets.Text('المطابقة الرسمية\nختم الإدارة\n★ 2026 ★', textAlign: pwWidgets.TextAlign.center, style: const pwWidgets.TextStyle(fontSize: 8)),
                         ),
                       ),
                       pwWidgets.Text('توقيع الأستاذ(ة): ${widget.teacher.name}'),
@@ -1108,66 +1775,214 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في إنشاء الـ PDF: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ أثناء إنشاء PDF: $e')));
       }
     }
+  }
+
+  void _sendGuardianNotification(Student student) {
+    String msg = '''
+السلام عليكم، إلى ولي أمر التلميذ(ة): ${student.lastName} ${student.firstName} (القسم: ${widget.schoolClass.name})
+حالة التلميذ الحالية: (${student.status}) في حصة ${widget.teacher.subject} بتاريخ: ${todayStr()}.
+معدل المادة الفصلي: ${student.average.toStringAsFixed(2)} / 20 (${student.appreciation}).
+مع تحيات الأستاذ: ${widget.teacher.name} - مؤسسة: ${widget.institution.name}.
+''';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إشعار ولي الأمر الفوري'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('النص المنسق للمشاركة عبر WhatsApp أو SMS:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+              child: Text(msg, style: const TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white),
+            icon: const Icon(Icons.copy),
+            label: const Text('نسخ الرسالة'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: msg));
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ نص الرسالة بنجاح!')));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditStudentGradesDialog(Student student) {
+    final continuousCtrl = TextEditingController(text: student.continuousEval.toString());
+    final exam1Ctrl = TextEditingController(text: student.exam1.toString());
+    final exam2Ctrl = TextEditingController(text: student.exam2.toString());
+    final testCtrl = TextEditingController(text: student.test.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('علامات التلميذ: ${student.lastName} ${student.firstName}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: continuousCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'التقويم المستمر والمشاركة')),
+              TextField(controller: exam1Ctrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'الفرض 1')),
+              TextField(controller: exam2Ctrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'الفرض 2')),
+              TextField(controller: testCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'الاختبار الفصلي')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+            onPressed: () async {
+              double? c = parseGrade(continuousCtrl.text);
+              double? e1 = parseGrade(exam1Ctrl.text);
+              double? e2 = parseGrade(exam2Ctrl.text);
+              double? t = parseGrade(testCtrl.text);
+
+              if (c != null && e1 != null && e2 != null && t != null) {
+                setState(() {
+                  student.continuousEval = c;
+                  student.exam1 = e1;
+                  student.exam2 = e2;
+                  student.test = t;
+                });
+                await SchoolData.saveData();
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث العلامات بنجاح!')));
+                }
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     widget.schoolClass.students.sort((a, b) => compareArabicNames(a.lastName, b.lastName));
 
-    int cWeak = widget.schoolClass.students.where((s) => s.average < 10.0).length;
-    int cAverage = widget.schoolClass.students.where((s) => s.average >= 10.0 && s.average < 14.0).length;
-    int cGood = widget.schoolClass.students.where((s) => s.average >= 14.0).length;
+    final filteredStudents = widget.schoolClass.students.where((s) {
+      if (_studentSearchQuery.isEmpty) return true;
+      final q = _studentSearchQuery.toLowerCase();
+      return s.lastName.toLowerCase().contains(q) || s.firstName.toLowerCase().contains(q) || s.regNumber.contains(q);
+    }).toList();
+
+    int countWeak = widget.schoolClass.students.where((s) => s.average < 10.0).length;
+    int countAverage = widget.schoolClass.students.where((s) => s.average >= 10.0 && s.average < 12.0).length;
+    int countGood = widget.schoolClass.students.where((s) => s.average >= 12.0 && s.average < 14.0).length;
+    int countVeryGood = widget.schoolClass.students.where((s) => s.average >= 14.0 && s.average < 16.0).length;
+    int countExcellent = widget.schoolClass.students.where((s) => s.average >= 16.0).length;
 
     return Scaffold(
       appBar: AppBar(
         title: Text('قسم: ${widget.schoolClass.name}'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           indicatorColor: const Color(0xFFF59E0B),
           tabs: const [
-            Tab(icon: Icon(Icons.people), text: 'التلاميذ'),
-            Tab(icon: Icon(Icons.bar_chart), text: 'الرسم البياني'),
+            Tab(icon: Icon(Icons.people), text: 'قائمة التلاميذ'),
+            Tab(icon: Icon(Icons.bar_chart), text: 'مخطط الأداء البياني'),
             Tab(icon: Icon(Icons.menu_book), text: 'دفتر النصوص'),
-            Tab(icon: Icon(Icons.upload_file), text: 'استيراد Excel'),
+            Tab(icon: Icon(Icons.event_available), text: 'سجل الحضور'),
+            Tab(icon: Icon(Icons.upload_file), text: 'استيراد رقمنة'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // 1. قائمة التلاميذ
-          ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: widget.schoolClass.students.length,
-            itemBuilder: (context, index) {
-              final student = widget.schoolClass.students[index];
-              List<Student> sorted = List.from(widget.schoolClass.students)
-                ..sort((a, b) => b.average.compareTo(a.average));
-              int rank = sorted.indexOf(student) + 1;
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: student.average >= 10 ? const Color(0xFF059669) : Colors.redAccent,
-                    child: Text('$rank', style: const TextStyle(color: Colors.white)),
+          // 1. تبويب التلاميذ وكشوف النقاط
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'بحث بالاسم أو اللقب أو رقم التعريف...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
-                  title: Text('${student.lastName} ${student.firstName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('المعدل: ${student.average.toStringAsFixed(2)} / 20 (${student.appreciation})'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFFD97706)),
-                    tooltip: 'كشف نقاط رسمي مع QR',
-                    onPressed: () => _exportStudentBulletinPdf(student, rank),
-                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _studentSearchQuery = val;
+                    });
+                  },
                 ),
-              );
-            },
+              ),
+              Expanded(
+                child: filteredStudents.isEmpty
+                    ? const Center(child: Text('لا يوجد تلاميذ مطابقون.'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: filteredStudents.length,
+                        itemBuilder: (context, index) {
+                          final student = filteredStudents[index];
+                          List<Student> sorted = List.from(widget.schoolClass.students)..sort((a, b) => b.average.compareTo(a.average));
+                          int rank = sorted.indexOf(student) + 1;
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: student.average >= 10.0 ? const Color(0xFF059669) : Colors.redAccent,
+                                child: Text('$rank', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                              title: Row(
+                                children: [
+                                  Text('${student.lastName} ${student.firstName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const SizedBox(width: 6),
+                                  if (student.average >= 16.0) const Icon(Icons.star, color: Color(0xFFF59E0B), size: 18),
+                                ],
+                              ),
+                              subtitle: Text('المعدل: ${student.average.toStringAsFixed(2)}/20 (${student.appreciation}) | تقويم: ${student.continuousEval} | ف1: ${student.exam1} | اخت: ${student.test}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFFD97706)),
+                                    tooltip: 'كشف نقاط رسمي مع QR',
+                                    onPressed: () => _exportStudentBulletinPdf(student, rank),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.notifications_active, color: Color(0xFF059669)),
+                                    tooltip: 'إشعار ولي الأمر',
+                                    onPressed: () => _sendGuardianNotification(student),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_note, color: Colors.blueGrey),
+                                    tooltip: 'تعديل العلامات',
+                                    onPressed: () => _showEditStudentGradesDialog(student),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
 
-          // 2. الرسم البياني (fl_chart)
+          // 2. تبويب المخطط البياني (fl_chart)
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -1177,8 +1992,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       children: [
-                        const Text('توزيع معدلات القسم بيانيا', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        const SizedBox(height: 20),
+                        const Text('توزيع معدلات الفوج بيانيا', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 24),
                         SizedBox(
                           height: 200,
                           child: BarChart(
@@ -1193,14 +2008,12 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                                     showTitles: true,
                                     getTitlesWidget: (v, m) {
                                       switch (v.toInt()) {
-                                        case 0:
-                                          return const Text('< 10');
-                                        case 1:
-                                          return const Text('10-14');
-                                        case 2:
-                                          return const Text('>= 14');
-                                        default:
-                                          return const Text('');
+                                        case 0: return const Text('< 10');
+                                        case 1: return const Text('10-12');
+                                        case 2: return const Text('12-14');
+                                        case 3: return const Text('14-16');
+                                        case 4: return const Text('16-20');
+                                        default: return const Text('');
                                       }
                                     },
                                   ),
@@ -1212,9 +2025,11 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                               gridData: const FlGridData(show: false),
                               borderData: FlBorderData(show: false),
                               barGroups: [
-                                BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: cWeak.toDouble(), color: Colors.redAccent, width: 24)]),
-                                BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: cAverage.toDouble(), color: Colors.orange, width: 24)]),
-                                BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: cGood.toDouble(), color: const Color(0xFF059669), width: 24)]),
+                                BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: countWeak.toDouble(), color: Colors.redAccent, width: 22)]),
+                                BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: countAverage.toDouble(), color: Colors.orange, width: 22)]),
+                                BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: countGood.toDouble(), color: Colors.blueGrey, width: 22)]),
+                                BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: countVeryGood.toDouble(), color: const Color(0xFF0D9488), width: 22)]),
+                                BarChartGroupData(x: 4, barRods: [BarChartRodData(toY: countExcellent.toDouble(), color: const Color(0xFFF59E0B), width: 22)]),
                               ],
                             ),
                           ),
@@ -1223,47 +2038,112 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.trending_up, color: Color(0xFF059669), size: 32),
+                    title: const Text('نسبة النجاح العامة في الفوج'),
+                    trailing: Text(
+                      '${widget.schoolClass.students.isEmpty ? "0" : ((widget.schoolClass.students.where((s) => s.average >= 10.0).length / widget.schoolClass.students.length) * 100).toStringAsFixed(1)} %',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
 
-          // 3. دفتر النصوص
-          widget.schoolClass.lessonNotes.isEmpty
-              ? const Center(child: Text('لا توجد مذكرات دروس مسجلة.'))
+          // 3. تبويب دفتر النصوص
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                  icon: const Icon(Icons.add),
+                  label: const Text('إضافة مذكرة درس جديد'),
+                  onPressed: () => _showAddNoteDialog(),
+                ),
+              ),
+              Expanded(
+                child: widget.schoolClass.lessonNotes.isEmpty
+                    ? const Center(child: Text('لا توجد مذكرات دروس مسجلة بعد.'))
+                    : ListView.builder(
+                        itemCount: widget.schoolClass.lessonNotes.length,
+                        itemBuilder: (context, index) {
+                          final note = widget.schoolClass.lessonNotes[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            child: ListTile(
+                              title: Text('${note.date}: ${note.title}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('الخلاصة: ${note.summary}\nالواجب: ${note.homework}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(icon: const Icon(Icons.edit, color: Colors.blueGrey), onPressed: () => _showAddNoteDialog(note: note)),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                    onPressed: () async {
+                                      setState(() {
+                                        widget.schoolClass.lessonNotes.removeAt(index);
+                                      });
+                                      await SchoolData.saveData();
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+
+          // 4. تبويب سجل الحضور والغياب
+          widget.schoolClass.dailyRecords.isEmpty
+              ? const Center(child: Text('لا توجد جلسات حضور مسجلة بعد.'))
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: widget.schoolClass.lessonNotes.length,
-                  itemBuilder: (context, i) {
-                    final n = widget.schoolClass.lessonNotes[i];
+                  itemCount: widget.schoolClass.dailyRecords.length,
+                  itemBuilder: (context, index) {
+                    final record = widget.schoolClass.dailyRecords[index];
+                    int present = record.studentStatuses.values.where((v) => v == 'حاضر').length;
+                    int absent = record.studentStatuses.values.where((v) => v == 'غائب').length;
                     return Card(
                       child: ListTile(
-                        title: Text('${n.date}: ${n.title}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${n.summary}\nالواجب: ${n.homework}'),
+                        leading: const CircleAvatar(backgroundColor: Color(0xFF059669), child: Icon(Icons.event, color: Colors.white)),
+                        title: Text('تاريخ الحصة: ${record.date}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('الحاضرون: $present | الغائبون: $absent'),
                       ),
                     );
                   },
                 ),
 
-          // 4. استيراد Excel
+          // 5. تبويب استيراد Excel ورقمنة من الهاتف
           Center(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(28.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.file_upload, size: 64, color: Color(0xFF059669)),
+                  const Icon(Icons.cloud_upload_outlined, size: 70, color: Color(0xFF059669)),
                   const SizedBox(height: 16),
-                  const Text('استيراد قائمة التلاميذ من ملف Excel بالهاتف',
+                  const Text('استيراد قائمة التلاميذ من ملف Excel أو منصة «رقمنة»',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  const Text('يدعم ملفات الهاتف (.xlsx و .xls) مع التعرّف التلقائي على الأعمدة والأسماء.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0F172A),
                       foregroundColor: const Color(0xFFF59E0B),
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     icon: const Icon(Icons.folder_open),
-                    label: const Text('اختيار ملف من ذاكرة الهاتف'),
+                    label: const Text('اختيار ملف من ذاكرة الهاتف', style: TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: _importStudentsFromExcel,
                   ),
                 ],
@@ -1271,6 +2151,13 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF0F172A),
+        foregroundColor: const Color(0xFFF59E0B),
+        onPressed: _showAddStudentDialog,
+        icon: const Icon(Icons.person_add),
+        label: const Text('إضافة تلميذ'),
       ),
     );
   }
